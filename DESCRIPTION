@@ -1,0 +1,24 @@
+Package: nhlscraper
+Title: Scraper for National Hockey League Data
+Version: 0.1.1
+Authors@R: c(person('Rento', 'Saijo', email='rentosaijo0527@gmail.com', role=c('aut', 'cre', 'cph'), comment=c(ORCID='0009-0008-4919-7349')), person('Lars', 'Skytte', email='lars.sunesen.skytte@gmail.com', role='ctb'))
+Description: Scrapes data from the 'NHL' API into 'tibble's. It primarily wraps endpoints documented by Zach Maludzinski (2023) <https://github.com/Zmalski/NHL-API-Reference>. It covers data from high-level multi-season summaries to low-level play-by-play logs.
+License: MIT + file LICENSE
+Encoding: UTF-8
+RoxygenNote: 7.3.2
+Imports: httr, jsonlite, dplyr, tibble, magrittr
+Suggests: knitr, rmarkdown, testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+URL: https://github.com/RentoSaijo/nhlscraper,
+        https://rentosaijo.github.io/nhlscraper/
+BugReports: https://github.com/RentoSaijo/nhlscraper/issues
+Copyright: NHL is registered trademark of the National Hockey League
+NeedsCompilation: no
+Packaged: 2025-06-06 16:17:47 UTC; rsai_91
+Author: Rento Saijo [aut, cre, cph] (ORCID:
+    <https://orcid.org/0009-0008-4919-7349>),
+  Lars Skytte [ctb]
+Maintainer: Rento Saijo <rentosaijo0527@gmail.com>
+Repository: CRAN
+Date/Publication: 2025-06-11 12:40:02 UTC
