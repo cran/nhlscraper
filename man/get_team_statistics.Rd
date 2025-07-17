@@ -2,7 +2,7 @@
 % Please edit documentation in R/Team.R
 \name{get_team_statistics}
 \alias{get_team_statistics}
-\title{Get team statistics by season}
+\title{Get team statistics}
 \usage{
 get_team_statistics(
   season = get_season_now()$seasonId,
@@ -14,27 +14,24 @@ get_team_statistics(
 )
 }
 \arguments{
-\item{season}{integer Season in YYYYYYYY}
+\item{season}{integer in YYYYYYYY}
 
-\item{report}{string Report (check \code{get_configuration()} for possible inputs)}
+\item{report}{string}
 
-\item{is_aggregate}{boolean isAggregate where TRUE=regular and playoffs
-combined, if applicable}
+\item{is_aggregate}{boolean}
 
-\item{is_game}{boolean isGame where TRUE=rows by games and FALSE=rows by
-teams}
+\item{is_game}{boolean}
 
-\item{dates}{vector of strings Date(s) in 'YYYY-MM-DD' (only if paired with
-\code{is_game}; too many dates will result in incomplete data)}
+\item{dates}{vector of strings in 'YYYY-MM-DD'}
 
-\item{game_types}{vector of integers Game-type(s) where 1=pre-season,
-2=regular, and 3=playoffs}
+\item{game_types}{vector of integers where 1=pre-season, 2=regular, and
+3=playoffs}
 }
 \value{
 tibble with one row per team or game
 }
 \description{
-Get team statistics by season
+\code{get_team_statistics()} retrieves information on each team or game for a given set of \code{season}, \code{game_types}, and \code{report}. \code{dates} must be given when paired with \code{is_game} as the default range will return incomplete data (too wide).  Access \code{get_configuration()} for what information each combination of \code{report}, \code{is_aggregate} and \code{is_game} can provide. Access \code{get_team_seasons()} for \code{season} and \code{dates} references. Will soon be reworked for easier access.
 }
 \examples{
 playoff_team_stf_20242025 <- get_team_statistics(

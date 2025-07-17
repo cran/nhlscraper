@@ -2,48 +2,45 @@
 % Please edit documentation in R/Goalie.R
 \name{get_goalie_statistics}
 \alias{get_goalie_statistics}
-\title{Get goalie statistics by season}
+\title{Get goalie statistics}
 \usage{
 get_goalie_statistics(
   season = get_season_now()$seasonId,
-  report = "summary",
   teams = 1:100,
-  is_aggregate = FALSE,
-  is_game = FALSE,
+  game_types = 1:3,
   dates = c("2025-01-01"),
-  game_types = 1:3
+  report = "summary",
+  is_aggregate = FALSE,
+  is_game = FALSE
 )
 }
 \arguments{
-\item{season}{integer Season in YYYYYYYY}
-
-\item{report}{string Report (check \code{get_configuration()} for possible inputs)}
+\item{season}{integer in YYYYYYYY}
 
 \item{teams}{vector of integers Team ID(s)}
 
-\item{is_aggregate}{boolean isAggregate where TRUE=regular and playoffs
-combined (or multiple seasons) from multiple teams,
-if applicable}
+\item{game_types}{vector of integers where 1=pre-season, 2=regular, and
+3=playoffs}
 
-\item{is_game}{boolean isGame where TRUE=rows by games and FALSE=rows by
-goalies}
+\item{dates}{vector of strings in 'YYYY-MM-DD'}
 
-\item{dates}{vector of strings Date(s) in 'YYYY-MM-DD' (only if paired with
-\code{is_game})}
+\item{report}{string}
 
-\item{game_types}{vector of integers Game-type(s) where 1=pre-season,
-2=regular, and 3=playoffs}
+\item{is_aggregate}{boolean}
+
+\item{is_game}{boolean}
 }
 \value{
 tibble with one row per goalie or game
 }
 \description{
-Get goalie statistics by season
+\code{get_goalie_statistics()} retrieves information on each goalie or game for a given set of \code{season}, \code{teams}, \code{game_types}, and \code{report}. \code{dates} must be given when paired with \code{is_game} as the default range will return incomplete data (too wide).  Access \code{get_configuration()} for what information each combination of \code{report}, \code{is_aggregate} and \code{is_game} can provide. Access \code{get_seasons()} for \code{season} and \code{dates} and \code{get_teams()} for \code{teams} references. Will soon be reworked for easier access.
 }
 \examples{
 playoff_goalie_svr_20242025 <- get_goalie_statistics(
   season=20242025,
-  report='startedVsRelieved',
-  game_types=c(3)
+  teams=1:100,
+  game_types=c(3),
+  report='startedVsRelieved'
 )
 }

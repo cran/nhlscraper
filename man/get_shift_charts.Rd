@@ -13,7 +13,7 @@ get_shift_charts(game = 2024020602)
 tibble with one row per shift
 }
 \description{
-Get shift charts
+\code{get_shift_charts()} retrieves information on each shift for a given \code{game}, including but not limited to their period, start and end times, and player's ID and name. Access \code{get_games()} for \code{game} reference.
 }
 \examples{
 shift_charts_2024030411 <- get_shift_charts(game=2024030411)

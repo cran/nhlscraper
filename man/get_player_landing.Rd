@@ -10,10 +10,10 @@ get_player_landing(player = 8480039)
 \item{player}{integer Player ID}
 }
 \value{
-list with 36 items
+list with various items
 }
 \description{
-Get landing by player
+\code{get_player_landing()} retrieves information on a \code{player}, including but not limited to his ID, name, bio-metrics, career statistics, and awards. Access \code{get_players()} for \code{player} reference.
 }
 \examples{
 Mikko_Rantanen_landing <- get_player_landing(player=8478420)

@@ -7,16 +7,15 @@
 get_team_prospects(team = "BOS", player_type = "forwards")
 }
 \arguments{
-\item{team}{string 3-letter team code}
+\item{team}{string 3-letter Code}
 
-\item{player_type}{string Player-type of 'forwards', 'defensemen', or
-'goalies'}
+\item{player_type}{string of 'forwards', 'defensemen', or 'goalies'}
 }
 \value{
 tibble with one row per player
 }
 \description{
-Get prospects by team and player-type
+\code{get_team_prospects()} retrieves information on each prospect for a given set of \code{team} and \code{player_type}, including but not limited to their ID, name, bio-metrics, and birth date and location. Access \code{get_teams()} for \code{team} reference.
 }
 \examples{
 COL_defensemen_prospects <- get_team_prospects(

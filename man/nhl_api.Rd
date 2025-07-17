@@ -2,22 +2,21 @@
 % Please edit documentation in R/Utility.R
 \name{nhl_api}
 \alias{nhl_api}
-\title{Internal: call NHL API}
+\title{Call NHL API}
 \usage{
-nhl_api(path, query = list(), stats_rest = FALSE)
+nhl_api(path, query = list(), type)
 }
 \arguments{
-\item{path}{String API path}
+\item{path}{String}
 
-\item{query}{list Query parameters}
+\item{query}{list}
 
-\item{stats_rest}{boolean isStatsRest where TRUE=NHL's REST API and FALSE=
-NHL's standard API}
+\item{type}{integer where 1=api-web, 2=api.nhle, and 3=records.nhl}
 }
 \value{
 parsed JSON
 }
 \description{
-Internal: call NHL API
+Call NHL API
 }
 \keyword{internal}

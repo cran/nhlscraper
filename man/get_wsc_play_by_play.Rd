@@ -13,7 +13,7 @@ get_wsc_play_by_play(game = 2024020602)
 tibble with one row per play
 }
 \description{
-Get World Showcase (WSC) play-by-play by game
+\code{get_wsc_play_by_play()} retrieves WSC-provided information on each play for a given \code{game}, including but not limited to their ID; time and strength state of occurrence; winning, losing, blocking, shooting, hitting, hit, scoring, assisting, committed-by, drawn-by, and/or served-by player IDs; and X and Y coordinates. Access \code{get_games()} for \code{game} reference.
 }
 \examples{
 wsc_pbp_2024030411 <- get_wsc_play_by_play(game=2024030411)

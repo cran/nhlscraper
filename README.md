@@ -1,131 +1,28 @@
-# nhlscraper: Scraper for NHL Data
+# nhlscraper <a href="https://rentosaijo.github.io/nhlscraper/"><img src="man/figures/logo.png" align="right" height="138" alt="nhlscraper website" /></a>
+[![CRAN Status](https://www.r-pkg.org/badges/version/nhlscraper)](https://CRAN.R-project.org/package=nhlscraper)
+[![Dev Version](https://img.shields.io/badge/dev%20ver-0.1.1.9000-red.svg)](https://github.com/RentoSaijo/nhlscraper)
+![Downloads](https://cranlogs.r-pkg.org/badges/grand-total/nhlscraper)
 
-## Overview
-nhlscraper is a public scraper for NHL data on R; with this, you will have relatively easy access to all sorts of data from high-level multi-season summaries to low-level play-by-play logs.
+### Overview
 
-## Installation
-Install the development version from [GitHub](https://github.com/) with:
-```
-#install.packages('devtools')
-devtools::install_github('RentoSaijo/nhlscraper')
-```
+nhlscraper is a CRAN-approved R-package for scraping NHL data using the NHL and ESPN APIs. It primarily wraps [endpoints documented by Zachary Maludzinski](https://github.com/Zmalski/NHL-API-Reference), [Drew Hynes](https://gitlab.com/dword4/nhlapi/), and [Joseph Wilson](https://github.com/pseudo-r/Public-ESPN-API); it also includes newly discovered endpoints by myself. It covers data from high-level multi-season summaries and award winners to low-level play-by-play logs and sports books' odds. Since the NHL API endpoints got reworked in 2023, many of the earlier scrapers became defunct; this one should be updated for the new endpoints.
 
+### Prerequisite
+
+- R/RStudio; you can check out my [tutorial](https://youtu.be/hGM1t6usDQ8) if you are not familiar!
+
+### Installation
 Install the official version from [CRAN](https://cran.r-project.org) with:
-```
+```r
 install.packages('nhlscraper')
 ```
 
-## Example
-Below are basic examples that show you how to use some of the functions.
-
-### Setup
-```
-library(nhlscraper)
+Install the development version from [GitHub](https://github.com/) with:
+```r
+install.packages('devtools')
+devtools::install_github('RentoSaijo/nhlscraper')
 ```
 
-### League Data
-```
-schedule_2025_01_02 <- get_schedule(date='2025-01-02')
-standings_2025_01_02 <- get_standings(date='2025-01-02')
-```
-
-### Team Data
-```
-COL_seasons <- get_team_seasons(team='COL')
-playoff_team_stf_20242025 <- get_team_statistics(
-  season=20242025,
-  report='scoretrailfirst',
-  game_types=c(3)
-)
-COL_defensemen_20242025 <- get_team_roster(
-  team='COL',
-  season=20242025,
-  player_type='defensemen'
-)
-regular_COL_goalies_statistics_20242025 <- get_team_roster_statistics(
-  team='COL',
-  season=20242025,
-  game_type=2,
-  player_type='goalies'
-)
-COL_defensemen_prospects <- get_team_prospects(
-  team='COL',
-  player_type='defensemen'
-)
-COL_schedule_20242025 <- get_team_schedule(team='COL', season=20242025)
-```
-
-### Player Data
-```
-playoff_Mikko_Rantanen_gl_20242025 <- get_player_game_log(
-  player=8478420,
-  season=20242025,
-  game_type=3
-)
-Mikko_Rantanen_landing <- get_player_landing(player=8478420)
-spotlight_players_now <- get_spotlight_players()
-```
-
-### Skater Data
-```
-skaters_2000s <- get_skaters(start_season=20002001, end_season=20242025)
-regular_skater_shootout_20242025 <- get_skater_statistics(
-  season=20242025,
-  report='shootout',
-  game_types=c(2)
-)
-playoff_toi_leaders_20242025 <- get_skater_leaders(
-  season=20242025,
-  game_type=3,
-  category='toi'
-)
-skater_milestones <- get_skater_milestones()
-```
-
-### Goalie Data
-```
-goalies_2000s <- get_goalies(start_season=20002001, end_season=20242025)
-playoff_goalie_svr_20242025 <- get_goalie_statistics(
-  season=20242025,
-  report='startedVsRelieved',
-  game_types=c(3)
-)
-playoff_savePctg_leaders_20242025 <- get_goalie_leaders(
-  season=20242025,
-  game_type=3,
-  category='savePctg'
-)
-goalie_milestones <- get_goalie_milestones()
-```
-
-### Game Data
-```
-scores_2025_01_02 <- get_scores(date='2025-01-02')
-boxscore_2024030411_FLA_defensemen <- get_game_boxscore(
-  game=2024030411,
-  team='away',
-  player_type='defense'
-)
-gc_pbp_2024030411 <- get_gc_play_by_play(game=2024030411)
-shift_charts_2024030411 <- get_shift_charts(game=2024030411)
-game_story_2024030411 <- get_game_story(game=2024030411)
-```
-
-### Playoff Data
-```
-bracket_2025 <- get_playoff_bracket(year=2025)
-COL_DAL_schedule_20242025 <- get_series_schedule(season=20242025, series='f')
-carousel_20242025_2 <- get_series_carousel(season=20242025, round=2)
-```
-
-### Draft Data
-```
-draft_picks_2024 <- get_draft_picks(year=2024, round='all')
-draft_rankings_2025 <- get_draft_rankings(year=2025)
-```
-
-### Other Data
-```
-tv_schedule_2025_01_02 <- get_tv_schedule(date='2025-01-02')
-partner_odds_now_CA <- get_partner_odds(country='CA')
-```
+### Disclosure
+1. The ESPN API functions (all starts with `get_espn_`) uses different sets of IDs and terminologies than the NHL API functions. For example, seasons are encoded in YYYY, the last 4 numbers in the YYYY-YYYY format; athletes refer to players; and events refer to games. These functions exist to help you access information that may not be available solely with the NHL API functions; therefore, I purposely ignored endpoints like those to access basic statistics as they're redundant if they co-exist with the NHL API functions.
+2. Most, if not, all of these endpoints are unofficially documented (i.e. hidden); therefore, it is all of our responsibilities to hit these endpoints with care. For example, endpoints that contain historical data and other mostly static data should only be hit once and stored in a database (e.g. MySQL) for further query. We do not know the exact rate limits for these APIs; don't ruin the fun for all of us!

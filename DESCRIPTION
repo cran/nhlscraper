@@ -1,24 +1,27 @@
 Package: nhlscraper
 Title: Scraper for National Hockey League Data
-Version: 0.1.1
+Version: 0.2.0
 Authors@R: c(person('Rento', 'Saijo', email='rentosaijo0527@gmail.com', role=c('aut', 'cre', 'cph'), comment=c(ORCID='0009-0008-4919-7349')), person('Lars', 'Skytte', email='lars.sunesen.skytte@gmail.com', role='ctb'))
-Description: Scrapes data from the 'NHL' API into 'tibble's. It primarily wraps endpoints documented by Zach Maludzinski (2023) <https://github.com/Zmalski/NHL-API-Reference>. It covers data from high-level multi-season summaries to low-level play-by-play logs.
+Description: Scrapes data from the 'NHL' and 'ESPN' APIs into 'tibble's. It primarily wraps endpoints documented by Zach Maludzinski (2023) <https://github.com/Zmalski/NHL-API-Reference>, Drew Hynes (2018) <https://gitlab.com/dword4/nhlapi/>, and Joseph Wilson (2023) <https://github.com/pseudo-r/Public-ESPN-API>, covering data from high-level multi-season summaries and award winners to low-level play-by-play logs and sports books' odds.
 License: MIT + file LICENSE
 Encoding: UTF-8
 RoxygenNote: 7.3.2
-Imports: httr, jsonlite, dplyr, tibble, magrittr
-Suggests: knitr, rmarkdown, testthat (>= 3.0.0)
+Imports: httr (>= 1.4.0), jsonlite (>= 2.0.0), dplyr (>= 1.1.0), tibble
+        (>= 3.3.0), magrittr (>= 2.0.0)
+Suggests: testthat (>= 3.0.0), knitr (>= 1.50.0), rmarkdown (>= 2.29.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 URL: https://github.com/RentoSaijo/nhlscraper,
         https://rentosaijo.github.io/nhlscraper/
 BugReports: https://github.com/RentoSaijo/nhlscraper/issues
-Copyright: NHL is registered trademark of the National Hockey League
+Copyright: Copyright: NHL and the NHL Shield are registered trademarks
+        of the National Hockey League. NHL and NHL team marks are the
+        property of the NHL and its teams.
 NeedsCompilation: no
-Packaged: 2025-06-06 16:17:47 UTC; rsai_91
+Packaged: 2025-07-17 12:08:45 UTC; rsai_91
 Author: Rento Saijo [aut, cre, cph] (ORCID:
     <https://orcid.org/0009-0008-4919-7349>),
   Lars Skytte [ctb]
 Maintainer: Rento Saijo <rentosaijo0527@gmail.com>
 Repository: CRAN
-Date/Publication: 2025-06-11 12:40:02 UTC
+Date/Publication: 2025-07-17 12:40:02 UTC
