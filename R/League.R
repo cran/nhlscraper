@@ -1,82 +1,153 @@
-#' Get all seasons
+#' Access all the seasons
 #' 
-#' `get_seasons()` retrieves information on each season, including but not limited to their ID; start and end dates; number of regular season and playoff games; Stanley Cup owner; Olympics participation; entry and supplemental draft, conference-division, win-tie-loss, and wildcard regulations.
-#' 
-#' @return tibble with one row per season
+#' `seasons()` scrapes all the seasons.
+#'
+#' @returns data.frame with one row per season
 #' @examples
-#' all_seasons <- get_seasons()
+#' all_seasons <- seasons()
 #' @export
 
-get_seasons <- function() {
-  out <- nhl_api(
-    path='season',
-    type=2
-  )
-  return(tibble::as_tibble(out$data))
+seasons <- function() {
+  seasons <- nhl_api(
+    path = 'en/season',
+    type = 's'
+  )$data
+  seasons[order(seasons$id), ]
 }
 
-#' Get standings information for all seasons
+#' Access the season as of now
 #' 
-#' `get_standings_information()` retrieves information on each season, including but not limited to their ID; start and end dates for standings; and conference-division, win-tie-loss, and wildcard regulations. May soon be merged with `get_seasons()`.
+#' `season_now` scrapes the current season.
 #' 
-#' @return tibble with one row per season
+#' @returns integer in YYYYYYYY (e.g., 20242025)
 #' @examples
-#' standings_info <- get_standings_information()
+#' season_now <- season_now()
 #' @export
 
-get_standings_information <- function() {
-  out <- nhl_api(
-    path='standings-season',
-    type=1
-  )
-  return(tibble::as_tibble(out$seasons))
+season_now <- function() {
+  nhl_api(
+    path = 'en/componentSeason',
+    type = 's'
+  )$data$seasonId
 }
 
-#' Get standings by date
+#' Access the game type as of now
 #' 
-#' `get_standings()` retrieves information on each team for a given `date`, including but not limited to their ID; name; conference; division; season, recent, and home-away statistics; and waiver sequence. Access `get_seasons()` for `date` reference.
+#' `game_type_now()` scrapes the current game type.
 #' 
-#' @param date string in 'YYYY-MM-DD'
-#' @return tibble with one row per team
+#' @returns integer in 1:3 (where 1 = pre-season, 2 = regular season, 3 
+#' = playoff/post-season)
 #' @examples
-#' standings_2025_01_02 <- get_standings(date='2025-01-02')
+#' game_type_now <- game_type_now()
 #' @export
 
-get_standings <- function(date='2025-01-01') {
-  if (!grepl('^\\d{4}-\\d{2}-\\d{2}$', date)) {
-    stop('`date` must be in \'YYYY-MM-DD\' format', call.=FALSE)
-  }
-  out <- nhl_api(
-    path=sprintf('standings/%s', date),
-    type=1
-  )
-  return(tibble::as_tibble(out$standings))
+game_type_now <- function() {
+  nhl_api(
+    path = 'en/componentSeason',
+    type = 's'
+  )$data$gameTypeId
 }
 
-#' Get schedule by date
+#' Access the standings rules by season
 #' 
-#' `get_schedule()` retrieves information on each game for a given `date`, including but not limited to their ID; type; venue; start time; tickets link; and home and away teams' IDs, names, and scores. Access `get_seasons()` for `date` reference. Unable to conclude any major difference versus `get_scores()`; may soon be deprecated.
+#' `standings_rules()` scrapes the standings rules by season.
 #' 
-#' @param date string in 'YYYY-MM-DD'
-#' @return tibble with one row per game
+#' @returns data.frame with one row per season
 #' @examples
-#' schedule_2025_01_02 <- get_schedule(date='2025-01-02')
+#' standings_rules <- standings_rules()
 #' @export
 
-get_schedule <- function(date='2025-01-01') {
-  if (!grepl('^\\d{4}-\\d{2}-\\d{2}$', date)) {
-    stop('`date` must be in \'YYYY-MM-DD\' format', call.=FALSE)
-  }
-  out <- nhl_api(
-    path=sprintf('schedule/%s', date),
-    type=1
+standings_rules <- function() {
+  nhl_api(
+    path = 'v1/standings-season',
+    type = 'w'
+  )$seasons
+}
+
+#' Access the standings for a date
+#' 
+#' `standings()` scrapes the standings for a given `date`.
+#' 
+#' @param date character in 'YYYY-MM-DD' (e.g., '2025-01-01'); see 
+#' [seasons()] for reference
+#' @returns data.frame with one row per team
+#' @examples
+#' standings_Halloween_2025 <- standings(date = '2025-10-31')
+#' @export
+
+standings <- function(date = 'now') {
+  tryCatch(
+    expr = {
+      nhl_api(
+        path = sprintf('v1/standings/%s', date),
+        type = 'w'
+      )$standings
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  if (is.null(out$gameWeek)) {
-    return(tibble::tibble())
-  }
-  sub <- out$gameWeek[out$gameWeek$date==date, , drop=FALSE]
-  if (nrow(sub)==0) {
-    return(tibble::tibble())
-  }
-  tibble::as_tibble(sub$games[[1]])
+}
+
+#' Access the schedule for a date
+#' 
+#' `schedule()` scrapes the schedule for a given `date`.
+#' 
+#' @inheritParams standings
+#' @returns data.frame with one row per game
+#' @examples
+#' schedule_Halloween_2025 <- schedule(date = '2025-10-31')
+#' @export
+
+schedule <- function(date = Sys.Date()) {
+  tryCatch(
+    expr = {
+      gameWeek <- nhl_api(
+        path = sprintf('v1/schedule/%s', date),
+        type = 'w'
+      )$gameWeek
+      gameWeek[gameWeek$date == date, ]$games[[1]]
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' Access all the venues
+#' 
+#' `venues()` scrapes all the venues.
+#' 
+#' @returns data.frame with one row per venue
+#' @examples
+#' all_venues <- venues()
+#' @export
+
+venues <- function() {
+  venues    <- nhl_api(
+    path = 'venue',
+    type = 'r'
+  )$data
+  venues$id <- NULL
+  venues[order(venues$venueId), ]
+}
+
+#' Access the attendance by season and game type
+#' 
+#' `attendance()` scrapes the attendance by season and game type.
+#' 
+#' @returns data.frame with one row per season
+#' @examples
+#' all_attendance <- attendance()
+#' @export
+
+attendance <- function() {
+  attendance <- nhl_api(
+    path = 'attendance',
+    type = 'r'
+  )$data
+  attendance$id <- NULL
+  attendance[order(attendance$seasonId), ]
 }

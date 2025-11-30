@@ -1,24 +1,280 @@
-# nhlscraper 0.2.0
+# nhlscraper 0.4.0
 
-- Submitted to CRAN.
+- Website now features proper example.
+- New functions to help clean the data are now available:
+  - `strip_game_id()`
+  - `strip_time_period()`
+  - `strip_situation_code()`
+  - `flag_is_home()`
+  - `flag_is_rebound()`
+  - `flag_is_rush()`
+  - `count_goals_shots()`
+  - `normalize_coordinates()`
+  - `calculate_distance()`
+  - `calculate_angle()`
+- New functions to run built-in models are now available:
+  - `calculate_expected_goals_v1()`
+  - `calculate_expected_goals_v2()`
+  - `calculate_expected_goals_v3()`
+- New function to help graph the data is now available:
+  - `draw_NHL_rink()`
+- New functions to help share the data are now available:
+  - `ig_game_shot_locations()`
+  - `x_game_shot_locations()`
+  - `ig_game_cumulative_expected_goals()`
+  - `x_game_cumulative_expected_goals()`
 
-# nhlscraper 0.1.1.9000
+# nhlscraper 0.3.0
 
+- Website now features disclosure and history.
 - Documentation is now standardized.
-- Website is now overhauled with dark theme, example, disclosure, etc.
-- New functions to access the NHL Records and ESPN APIs are now available:
+- All API calls now handle rate-limits with exponential backoff.
+- Parameters are now standardized and can handle robust arguments.
+- Error-handling is now more elegant, returning messages alongside empty data.
+- New functions to access data about the entire league are now available:
+  - `seasons()`
+  - `season_now()`
+  - `game_type_now()`
+  - `standings_rules()`
+  - `standings()`
+  - `schedule()`
+  - `venues()`
+  - `attendance()`
+- New functions to access data about the franchises are now available:
+  - `franchises()`
+  - `franchise_statistics()`
+  - `franchise_team_statistics()`
+  - `franchise_season_statistics()`
+  - `franchise_versus_franchise()`
+  - `franchise_playoff_situational_results()`
+- New functions to access data about the teams are now available:
+  - `teams()`
+  - `team_seasons()`
+  - `team_report_configurations()`
+  - `team_season_report()`
+  - `team_game_report()`
+  - `team_season_statistics()`
+  - `roster()`
+  - `roster_statistics()`
+  - `team_prospects()`
+  - `team_season_schedule()`
+  - `team_month_schedule()`
+  - `team_week_schedule()`
+  - `team_logos()`
+- New functions to access the team EDGE statistics are now available:
+  - `team_edge_seasons()`
+  - `team_edge_leaders()`
+  - `team_edge_summary()`
+  - `team_edge_zone_time()`
+  - `team_edge_skating_distance()`
+  - `team_edge_skating_speed()`
+  - `team_edge_shot_location()`
+  - `team_edge_shot_speed()`
+- New functions to access data about the players are now available:
+  - `players()`
+  - `player_seasons()`
+  - `player_summary()`
+  - `player_game_log()`
+  - `spotlight_players()`
+- New functions to access data about the skaters are now available:
+  - `skater_report_configurations()`
+  - `skater_season_report()`
+  - `skater_game_report()`
+  - `skater_statistics()`
+  - `skater_regular_statistics()`
+  - `skater_playoff_statistics()`
+  - `skater_season_statistics()`
+  - `skater_series_statistics()`
+  - `skater_leaders()`
+  - `skater_milestones()`
+- New functions to access the skater EDGE statistics are now available:
+  - `skater_edge_seasons()`
+  - `skater_edge_leaders()`
+  - `skater_edge_summary()`
+  - `skater_edge_zone_time()`
+  - `skater_edge_skating_distance()`
+  - `skater_edge_skating_speed()`
+  - `skater_edge_shot_location()`
+  - `skater_edge_shot_speed()`
+- New functions to access data about the goalies are now available:
+  - `goalie_report_configurations()`
+  - `goalie_season_report()`
+  - `goalie_game_report()`
+  - `goalie_statistics()`
+  - `goalie_regular_statistics()`
+  - `goalie_season_statistics()`
+  - `goalie_game_statistics()`
+  - `goalie_series_statistics()`
+  - `goalie_scoring()`
+  - `goalie_game_scoring()`
+  - `goalie_leaders()`
+  - `goalie_milestones()`
+- New functions to access the goalie EDGE statistics are now available:
+  - `goalie_edge_seasons()`
+  - `goalie_edge_leaders()`
+  - `goalie_edge_summary()`
+  - `goalie_edge_save_percentage()`
+  - `goalie_edge_five_versus_five()`
+  - `goalie_edge_shot_location()`
+- New functions to access data about the games are now available:
+  - `games()`
+  - `scores()`
+  - `gc_summary()`
+  - `wsc_summary()`
+  - `boxscore()`
+  - `game_rosters()`
+  - `gc_play_by_play()`
+  - `wsc_play_by_play()`
+  - `shifts()`
+  - `game_odds()`
+- New functions to access data about the events (plays) are now available:
+  - `replay()`
+  - `penalty_shots()`
+- New functions to access data about the playoffs are now available:
+  - `series()`
+  - `playoff_season_statistics()`
+  - `bracket()`
+  - `series_schedule()`
+- New functions to access data about the awards are now available:
+  - `awards()`
+  - `award_winners()`
+- New functions to access data about the drafts are now available:
+  - `drafts()`
+  - `draft_picks()`
+  - `draft_prospects()`
+  - `draft_rankings()`
+  - `combine_reports()`
+  - `lottery_odds()`
+  - `draft_tracker()`
+  - `expansion_drafts()`
+  - `expansion_draft_picks()`
+- New function to access data about the general managers is now available:
+  - `general_managers()`
+- New functions to access data about the coaches are now available:
+  - `coaches()`
+  - `coach_career_statistics()`
+  - `coach_franchise_statistics()`
+- New function to access data about the officials is now available:
+  - `officials()`
+- New functions to access other data are now available:
+  - `glossary()`
+  - `countries()`
+  - `location()`
+  - `streams()`
+  - `tv_schedule()`
+- Some functions are now deprecated:
+  - `get_seasons()`
+  - `get_standings_information()`
+  - `get_standings()`
+  - `get_schedule()`
+  - `get_venues()`
+  - `get_attendance()`
+  - `get_franchises()`
+  - `get_franchise_team_totals()`
   - `get_franchise_season_by_season()`
+  - `get_franchise_vs_franchise()`
+  - `get_teams()`
+  - `get_team_seasons()`
+  - `get_team_roster()`
+  - `get_team_roster_statistics()`
+  - `get_team_prospects()`
+  - `get_team_schedule()`
   - `get_players()`
+  - `get_player_landing()`
+  - `get_player_game_log()`
+  - `get_spotlight_players()`
+  - `get_skater_leaders()`
+  - `get_skater_milestones()`
+  - `get_goalie_leaders()`
+  - `get_goalie_milestones()`
+  - `get_games()`
+  - `get_scores()`
+  - `get_scoreboards()`
+  - `get_game_landing()`
+  - `get_game_story()`
+  - `get_game_boxscore()`
+  - `get_gc_play_by_play()`
+  - `get_wsc_play_by_play()`
+  - `get_shift_charts()`
   - `get_bracket()`
-  - `get_series()`
+  - `get_series_schedule()`
   - `get_awards()`
   - `get_award_winners()`
   - `get_drafts()`
+  - `get_draft_picks()`
+  - `get_draft_rankings()`
+  - `get_draft_tracker()`
+  - `get_officials()`
+  - `get_glossary()`
+  - `get_countries()`
+  - `get_streams()`
+  - `get_tv_schedule()`
+  - `get_partner_odds()`
+- Some functions are now defunct:
+  - `get_season_now()`
+  - `get_team_statistics()`
+  - `get_team_scoreboard()`
+  - `get_skaters()`
+  - `get_skater_statistics()`
+  - `get_goalies()`
+  - `get_goalie_statistics()`
+  - `get_series()`
+  - `ping()`
+  - `get_configuration()`
+- New ESPN functions are now available:
+  - `espn_teams()`
+  - `espn_team_summary()`
+  - `espn_players()`
+  - `espn_player_summary()`
+  - `espn_games()`
+  - `espn_game_summary()`
+  - `espn_play_by_play()`
+  - `espn_game_odds()`
+  - `espn_transactions()`
+  - `espn_futures()`
+  - `espn_injuries()`
+- Some ESPN functions are now deprecated:
+  - `get_espn_athletes()`
+  - `get_espn_athlete()`
+  - `get_espn_even()t`
+  - `get_espn_event_play_by_play()`
+  - `get_espn_event_odds()`
+  - `get_espn_injuries()`
+- Some ESPN functions are now defunct:
+  - `get_espn_teams()`
+  - `get_espn_team()`
+  - `get_espn_athlete()`
+  - `get_espn_events()`
+  - `get_espn_event_stars()`
+  - `get_espn_event_officials()`
+  - `get_espn_coaches()`
+  - `get_espn_coach()`
+  - `get_espn_coach_career()`
+  - `get_espn_transactions()`
+  - `get_espn_futures()`
+
+# nhlscraper 0.2.0
+
+- Website now features dark theme and example.
+- New functions to access data about the franchises are now available:
+  - `get_franchise_season_by_season()`
   - `get_franchise_team_totals()`
   - `get_franchise_vs_franchise()`
+- New function to access data about the players is now available:
+  - `get_players()`
+- New functions to access data about the playoffs are now available:
+  - `get_bracket()`
+  - `get_series()`
+- New functions to access data about the awards are now available:
+  - `get_awards()`
+  - `get_award_winners()`
+- New function to access data about the drafts is now available:
+  - `get_drafts()`
+- New functions to access other data are now available:
   - `get_venues()`
   - `get_attendance()`
   - `get_officials()`
+- New functions to access the ESPN API are now available:
   - `get_espn_teams()`
   - `get_espn_team()`
   - `get_espn_athletes()`
@@ -35,31 +291,20 @@
   - `get_espn_transactions()`
   - `get_espn_injuries()`
   - `get_espn_futures()`
-- Some functions' returns are now modified:
-  - `get_franchises()`
-  - `get_draft_picks()`
-- Some functions are now replaced :
-  - `get_draft_information()` is now `get_drafts()`.
-  - `get_playoff_bracket()` is now `get_bracket()`.
-  - `get_series_carousel()` is now `get_series()`.
 
 # nhlscraper 0.1.1
 
-- Fixed some documentation (mainly, examples).
-- Tidied up various functions.
+- Some functions are now more optimized.
 
 # nhlscraper 0.1.0
 
-- Submitted to CRAN.
-
-# nhlscraper 0.0.0.9000
-
-- Added `News.md` file to track changes to the package.
-- Added new functions:
+- `News.md` now tracks changelog.
+- New functions to access data about the entire league are now available:
   - `get_seasons()`
   - `get_schedule()`
   - `get_standings_information()`
   - `get_standings()`
+- New functions to access data about the franchises/teams are now available:
   - `get_teams()`
   - `get_franchises()`
   - `get_team_seasons()`
@@ -69,17 +314,21 @@
   - `get_team_prospects()`
   - `get_team_schedule()`
   - `get_team_scoreboard()`
+- New functions to access data about the players are now available:
   - `get_player_game_log()`
   - `get_player_landing()`
   - `get_spotlight_players()`
+- New functions to access data about the skaters are now available:
   - `get_skaters()`
   - `get_skater_statistics()`
   - `get_skater_leaders()`
   - `get_skater_milestones()`
+- New functions to access data about the goalies are now available:
   - `get_goalies()`
   - `get_goalie_statistics()`
   - `get_goalie_leaders()`
   - `get_goalie_milestones()`
+- New functions to access data about the games are now available:
   - `get_games()`
   - `get_scores()`
   - `get_scoreboards()`
@@ -89,13 +338,13 @@
   - `get_shift_charts()`
   - `get_game_landing()`
   - `get_game_story()`
-  - `get_playoff_bracket()`
+- New function to access data about the playoffs is now available:
   - `get_series_schedule()`
-  - `get_series_carousel()`
-  - `get_draft_information()`
+- New functions to access data about the drafts are now available:
   - `get_draft_picks()`
   - `get_draft_rankings()`
   - `get_draft_tracker()`
+- New functions to access other data are now available:
   - `ping()`
   - `get_glossary()`
   - `get_configuration()`
@@ -104,4 +353,3 @@
   - `get_tv_schedule()`
   - `get_partner_odds()`
   - `get_season_now()`
-    

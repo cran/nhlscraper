@@ -1,199 +1,339 @@
-#' Get all games
+#' Access all the games
 #' 
-#' `get_games()` retrieves information on each game, including but not limited to their ID, season, type, start date and time, and home and visiting teams' IDs and scores.
+#' `games()` scrapes all the games.
 #' 
-#' @return tibble with one row per game
+#' @returns data.frame with one row per game
 #' @examples
-#' # This may take >5s, so skip.
-#' \donttest{
-#'   all_games <- get_games()
-#' }
+#' # May take >5s, so skip.
+#' \donttest{all_games <- games()}
 #' @export
 
-get_games <- function() {
-  out <- nhl_api(
-    path='game',
-    type=2
-  )
-  return(tibble::as_tibble(out$data))
+games <- function() {
+  games <- nhl_api(
+    path = 'en/game',
+    type = 's'
+  )$data
+  games[order(games$id), ]
 }
 
-#' Get score(s) by date
+#' Access the scores for a date
 #' 
-#' `get_scores()` retrieves information on each game for a given `date`, including but not limited to their ID; type; venue; start time; period and intermission clocks; and home and away teams' IDs, names, and scores. Access `get_seasons()` for `date` reference.
+#' `scores()` scrapes the scores for a given `date`.
 #' 
-#' @param date string in 'YYYY-MM-DD'
-#' @return tibble with one row per game
+#' @inheritParams standings
+#' @returns data.frame with one row per game
 #' @examples
-#' scores_2025_01_02 <- get_scores(date='2025-01-02')
+#' scores_Halloween_2025 <- scores(date = '2025-10-31')
 #' @export
 
-get_scores <- function(date='2025-01-01') {
-  if (!grepl('^\\d{4}-\\d{2}-\\d{2}$', date)) {
-    stop('`date` must be in \'YYYY-MM-DD\' format', call.=FALSE)
-  }
-  out <- nhl_api(
-    path=sprintf('score/%s', date),
-    type=1
+scores <- function(date = 'now') {
+  tryCatch(
+    expr = {
+      nhl_api(
+        path = sprintf('v1/score/%s', date),
+        type = 'w'
+      )$games
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  return(tibble::as_tibble(out$games))
 }
 
-#' Get scoreboard(s) by date
+#' Access the GameCenter (GC) summary for a game
 #' 
-#' `get_scoreboards()` retrieves information on each game for a given `date`, including but not limited to their ID; type; venue; start time; tickets link; and home and away teams' IDs, names, and scores. Access `get_seasons()` for `date` reference. Unable to conclude any major difference versus `get_scores()`; may soon be deprecated.
+#' `gc_summary()` scrapes the GC summary for a given `game`.
 #' 
-#' @param date string in 'YYYY-MM-DD'
-#' @return tibble with one row per game
+#' @param game integer ID (e.g., 2025020275); see [games()] for reference
+#' @returns list of various items
 #' @examples
-#' scoreboards_2025_01_02 <- get_scoreboards(date='2025-01-02')
+#' gc_summary_Martin_Necas_legacy_game <- gc_summary(game = 2025020275)
 #' @export
 
-get_scoreboards <- function(date='2025-01-01') {
-  if (!grepl('^\\d{4}-\\d{2}-\\d{2}$', date)) {
-    stop('`date` must be in \'YYYY-MM-DD\' format', call.=FALSE)
-  }
-  out <- nhl_api(
-    path=sprintf('scoreboard/%s', date),
-    type=1
+gc_summary <- function(game = 2023030417) {
+  tryCatch(
+    expr = {
+      landing    <- nhl_api(
+        path = sprintf('v1/gamecenter/%s/landing', game),
+        type = 'w'
+      )
+      right_rail <- nhl_api(
+        path = sprintf('v1/gamecenter/%s/right-rail', game),
+        type = 'w'
+      )
+      c(landing, right_rail)
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      list()
+    }
   )
-  if (is.null(out$gamesByDate)) {
-    return(tibble::tibble())
-  }
-  sub <- out$gamesByDate[out$gamesByDate$date==date, , drop=FALSE]
-  if (nrow(sub)==0) {
-    return(tibble::tibble())
-  }
-  tibble::as_tibble(sub$games[[1]])
 }
 
-#' Get boxscore by game, team, and player-type
+#' Access the World Showcase (WSC) summary for a game
 #' 
-#' `get_game_boxscore()` retrieves information on each player for a given set of `game`, `team`, and `player_type`, including but not limited to their ID, name, sweater number, goals, assists, +/-, hits, blocks, shots-on-goal, giveaways, takeaways, time on ice, and number of shifts. Access `get_games()` for `game` reference.
+#' `wsc_summary()` scrapes the WSC summary for a given `game`.
 #' 
-#' @param game integer Game ID
-#' @param team string of 'home' or 'away'
-#' @param player_type string of 'forwards', 'defense', or 'goalies'
-#' @return tibble with one row per player
+#' @inheritParams gc_summary
+#' @returns list of various items
 #' @examples
-#' boxscore_2024030411_FLA_defensemen <- get_game_boxscore(
-#'   game=2024030411,
-#'   team='away',
-#'   player_type='defense'
+#' wsc_summary_Martin_Necas_legacy_game <- wsc_summary(game = 2025020275)
+#' @export
+
+wsc_summary <- function(game = 2023030417) {
+  tryCatch(
+    expr = {
+      nhl_api(
+        path = sprintf('v1/wsc/game-story/%s', game),
+        type = 'w'
+      )
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      list()
+    }
+  )
+}
+
+#' Access the boxscore for a game, team, and position
+#' 
+#' `boxscore()` scrapes the boxscore for a given set of `game`, `team`, and 
+#' `position`.
+#' 
+#' @inheritParams gc_summary
+#' @inheritParams roster
+#' @param team character of 'h'/'home' or 'a'/'away'
+#' @returns data.frame with one row per player
+#' @examples
+#' boxscore_COL_forwards_Martin_Necas_legacy_game <- boxscore(
+#'   game     = 2025020275,
+#'   team     = 'H',
+#'   position = 'F'
 #' )
 #' @export
 
-get_game_boxscore <- function(
-    game=2024020602,
-    team='home',
-    player_type='forwards'
+boxscore <- function(
+  game     = 2023030417,
+  team     = 'home',
+  position = 'forwards'
 ) {
-  out <- nhl_api(
-    path=sprintf('gamecenter/%s/boxscore', game),
-    type=1
-  )
-  return(tibble::as_tibble(
-    out$playerByGameStats[[paste0(team, 'Team')]][[player_type]])
+  tryCatch(
+    expr = {
+      team <- switch(
+        substring(tolower(team), 1, 1),
+        h = 'home',
+        a = 'away'
+      )
+      position <- switch(
+        substring(tolower(position), 1, 1),
+        f = 'forwards',
+        d = 'defense',
+        g = 'goalies'
+      )
+      boxscore <- nhl_api(
+        path = sprintf('v1/gamecenter/%s/boxscore', game),
+        type = 'w'
+      )$playerByGameStats
+      boxscore[[paste0(team, 'Team')]][[position]]
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
 }
 
-#' Get GameCenter (GC) play-by-play by game
+#' Access the rosters for a game
 #' 
-#' `get_gc_play_by_play()` retrieves GC-provided information on each play for a given `game`, including but not limited to their ID; type; time of occurrence; winning, losing, blocking, shooting, hitting, hit, scoring, assisting, committed-by, drawn-by, and/or served-by player IDs; and X and Y coordinates. Access `get_games()` for `game` reference.
+#' `game_rosters()` scrapes the rosters for a given `game`.
 #' 
-#' @param game integer Game ID
-#' @return tibble with one row per play
+#' @inheritParams gc_summary
+#' @returns data.frame with one row per player
 #' @examples
-#' gc_pbp_2024030411 <- get_gc_play_by_play(game=2024030411)
+#' rosters_Martin_Necas_legacy_game <- game_rosters(game = 2025020275)
 #' @export
 
-get_gc_play_by_play <- function(game=2024020602) {
-  out <- nhl_api(
-    path=sprintf('gamecenter/%s/play-by-play', game),
-    type=1
+game_rosters <- function(game = 2023030417) {
+  tryCatch(
+    expr = {
+      rosters <- nhl_api(
+        path = sprintf('v1/gamecenter/%s/play-by-play', game),
+        type = 'w'
+      )$rosterSpots
+      rosters <- rosters[order(rosters$sweaterNumber), ]
+      rosters[order(rosters$teamId), ]
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  return(tibble::as_tibble(out$plays))
 }
 
-#' Get World Showcase (WSC) play-by-play by game
+#' Access the GameCenter (GC) play-by-play for a game
 #' 
-#' `get_wsc_play_by_play()` retrieves WSC-provided information on each play for a given `game`, including but not limited to their ID; time and strength state of occurrence; winning, losing, blocking, shooting, hitting, hit, scoring, assisting, committed-by, drawn-by, and/or served-by player IDs; and X and Y coordinates. Access `get_games()` for `game` reference.
-#'
-#' @param game integer Game ID
-#' @return tibble with one row per play
+#' `gc_play_by_play()` scrapes the GC play-by-play for a given `game`.
+#' 
+#' @inheritParams gc_summary
+#' @returns data.frame with one row per event (play)
 #' @examples
-#' wsc_pbp_2024030411 <- get_wsc_play_by_play(game=2024030411)
+#' gc_pbp_Martin_Necas_legacy_game <- gc_play_by_play(game = 2025020275)
 #' @export
 
-get_wsc_play_by_play <- function(game=2024020602) {
-  out <- nhl_api(
-    path=sprintf('wsc/play-by-play/%s', game),
-    type=1
+gc_play_by_play <- function(game = 2023030417) {
+  tryCatch(
+    expr = {
+      plays        <- nhl_api(
+        path = sprintf('v1/gamecenter/%s/play-by-play', game),
+        type = 'w'
+      )$plays
+      plays$gameId <- game
+      plays        <- plays[, c('gameId', setdiff(names(plays), 'gameId'))]
+      nms          <- names(plays)
+      nms[nms == 'details.typeCode'] <- 'penaltyTypeCode'
+      idx          <- grepl('\\.', nms)
+      nms[idx]     <- sub('^[^.]*\\.', '', nms[idx])
+      names(plays) <- nms
+      idx <- plays$typeDescKey == 'blocked-shot' & 
+        plays$zoneCode %in% c('O', 'D')
+      plays$zoneCode[idx] <- ifelse(
+        plays$zoneCode[idx] == 'O',
+        'D',
+        'O'
+      )
+      names(plays)[names(plays) == 'number'] <- 'period'
+      plays$awayScore <- NULL
+      plays$homeScore <- NULL
+      plays$awaySOG   <- NULL
+      plays$homeSOG   <- NULL
+      plays
+    },
+    error = function(e) {
+      message(paste(
+        'Invalid argument(s); refer to help file.',
+        '\nProvided game:',
+        game
+      ))
+      data.frame()
+    }
   )
-  out <- tibble::as_tibble(out)
-  if (ncol(out)==4) {
-    return(tibble::tibble())
-  }
-  return(out)
 }
 
-#' Get shift charts
-#' 
-#' `get_shift_charts()` retrieves information on each shift for a given `game`, including but not limited to their period, start and end times, and player's ID and name. Access `get_games()` for `game` reference.
-#' 
-#' @param game integer Game ID
-#' @return tibble with one row per shift
-#' @examples
-#' shift_charts_2024030411 <- get_shift_charts(game=2024030411)
+#' @rdname gc_play_by_play
 #' @export
-
-get_shift_charts <- function(game=2024020602) {
-  out <- nhl_api(
-    path='shiftcharts',
-    query=list(cayenneExp=sprintf('gameId=%s', game)),
-    type=2
-  )
-  return(tibble::as_tibble(out$data))
+gc_pbp <- function(game = 2023030417) {
+  gc_play_by_play(game)
 }
 
-#' Get GameCenter (GC) game-landing by game
+#' Access the World Showcase (WSC) play-by-play for a game
 #' 
-#' `get_game_landing()` retrieves GC-provided information on a `game`, including but not limited to its type, venue, start time, clock, home and away teams, and TV broadcast(s). Access `get_games()` for `game` reference.
+#' `wsc_play_by_play()` scrapes the WSC play-by-play for given `game`.
 #' 
-#' @param game integer Game ID
-#' @return list of various items
+#' @inheritParams gc_summary
+#' @returns data.frame with one row per event (play)
 #' @examples
-#' game_landing_2024030411 <- get_game_landing(game=2024030411)
+#' wsc_pbp_Martin_Necas_legacy_game <- wsc_play_by_play(game = 2025020275)
 #' @export
 
-get_game_landing <- function(game=2024020602) {
-  out <- nhl_api(
-    path=sprintf('gamecenter/%s/landing', game),
-    type=1
+wsc_play_by_play <- function(game = 2023030417) {
+  tryCatch(
+    expr = {
+      plays        <- nhl_api(
+        path = sprintf('v1/wsc/play-by-play/%s', game),
+        type = 'w'
+      )
+      plays$id     <- NULL
+      plays$gameId <- game
+      plays        <- plays[, c('gameId', setdiff(names(plays), 'gameId'))]
+      idx <- plays$typeDescKey == 'blocked-shot' & 
+        plays$zoneCode %in% c('O', 'D')
+      plays$zoneCode[idx] <- ifelse(
+        plays$zoneCode[idx] == 'O',
+        'D',
+        'O'
+      )
+      names(plays)[names(plays) == 'number'] <- 'periodNumber'
+      plays$awayScore        <- NULL
+      plays$homeScore        <- NULL
+      plays$awaySOG          <- NULL
+      plays$homeSOG          <- NULL
+      plays$goalModifier     <- NULL
+      plays$strength         <- NULL
+      plays$strengthCode     <- NULL
+      plays$goalCode         <- NULL
+      plays$secondsRemaining <- NULL
+      plays
+    },
+    error = function(e) {
+      message(paste(
+        'Invalid argument(s); refer to help file.',
+        '\nProvided game:',
+        game
+      ))
+      data.frame()
+    }
   )
-  if (length(out)==4) {
-    return(list())
-  }
-  return(out)
 }
 
-#' Get World Showcase (WSC) game-story by game
+#' @rdname wsc_play_by_play
+#' @export
+wsc_pbp <- function(game = 2023030417) {
+  wsc_play_by_play(game)
+}
+
+#' Access the shift charts for a game
 #' 
-#' `get_game_story()` retrieves WSC-provided information on a `game`, including but not limited to its type, venue, start time, clock, home and away teams, and TV broadcast(s). Access `get_games()` for `game` reference.
+#' `shifts()` scrapes the shift charts for a given `game`.
 #' 
-#' @param game integer Game ID
-#' @return list of various items
+#' @inheritParams gc_summary
+#' @returns data.frame with one row per shift
 #' @examples
-#' game_story_2024030411 <- get_game_story(game=2024030411)
+#' shifts_Martin_Necas_legacy_game <- shifts(game = 2025020275)
 #' @export
 
-get_game_story <- function(game=2024020602) {
-  out <- nhl_api(
-    path=sprintf('wsc/game-story/%s', game),
-    type=1
+shifts <- function(game = 2023030417) {
+  tryCatch(
+    expr = {
+      shifts <- nhl_api(
+        path  = 'en/shiftcharts',
+        query = list(cayenneExp = sprintf('gameId = %s', game)),
+        type  = 's'
+      )$data
+      shifts[order(shifts$teamId), ]
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  if (length(out)==4) {
-    return(list())
-  }
-  return(out)
+}
+
+#' Access the real-time game odds for a country by partnered bookmaker
+#' 
+#' `game_odds()` scrapes the real-time game odds for a given `country` by 
+#' partnered bookmaker.
+#' 
+#' @param country two-letter code (e.g., 'CA'); see [countries()] for 
+#' reference
+#' @returns data.frame with one row per game
+#' @examples
+#' game_odds_CA <- game_odds(country = 'CA')
+#' @export
+
+game_odds <- function(country = 'US') {
+  tryCatch(
+    expr = {
+      games <- nhl_api(
+        path = sprintf('v1/partner-game/%s/now', country),
+        type = 'w'
+      )$games
+      games[0, ]
+      games
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
 }

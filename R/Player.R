@@ -1,85 +1,128 @@
-#' Get all players
+#' Access all the players
 #' 
-#' `get_players()` retrieves information on each player, including but not limited to their ID, name, bio-metrics, birth date and location, and hall-of-fame status.
-#'
-#' @return tibble with one row per player
+#' `players()` scrapes all the players.
+#' 
+#' @returns data.frame with one row per player
 #' @examples
-#' # This may take >5s, so skip.
-#' \donttest{
-#'   all_players <- get_players()
-#' }
+#' # May take >5s, so skip.
+#' \donttest{all_players <- players()}
 #' @export
 
-get_players <- function() {
-  out <- nhl_api(
-    path='player',
-    type=3
-  )
-  return(tibble::as_tibble(out$data))
+players <- function() {
+  players <- nhl_api(
+    path = 'player',
+    type = 'r'
+  )$data
+  players[order(players$id), ]
 }
 
-#' Get game-log by player, season, and game-type
+#' Access the season(s) and game type(s) in which a player played
 #' 
-#' `get_player_game_log()` retrieves information on each game for a given set of `player`, `season`, and `game_type`, including but not limited to their ID, date, and statistics. Access `get_players()` for `player` and `get_seasons()` for `season` references.
+#' `player_seasons()` scrapes the season(s) and game type(s) in which a 
+#' player played in the NHL.
 #' 
-#' @param player integer Player ID
-#' @param season integer in YYYYYYYY
-#' @param game_type integer where 2=regular and 3=playoffs
-#' @return tibble with one row per game
+#' @param player integer ID (e.g., 8480039); see [players()] for reference
+#' @returns data.frame with one row per season
 #' @examples
-#' playoff_Mikko_Rantanen_gl_20242025 <- get_player_game_log(
-#'   player=8478420,
-#'   season=20242025,
-#'   game_type=3
+#' Martin_Necas_seasons <- player_seasons(player = 8480039)
+#' @export
+
+player_seasons <- function(player = 8478402) {
+  tryCatch(
+    expr = {
+      seasons <- nhl_api(
+        path = sprintf('v1/player/%s/game-log/now', player),
+        type = 'w'
+      )$playerStatsSeasons
+      seasons[0, ]
+      seasons
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' Access the summary for a player
+#' 
+#' `player_summary()` scrapes the summary for a given `player`.
+#' 
+#' @inheritParams player_seasons
+#' @returns list with various items
+#' @examples
+#' Martin_Necas_summary <- player_summary(player = 8480039)
+#' @export
+
+player_summary <- function(player = 8478402) {
+  tryCatch(
+    expr = {
+      nhl_api(
+        path = sprintf('v1/player/%s/landing', player),
+        type = 'w'
+      )
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      list()
+    }
+  )
+}
+
+#' Access the game log for a player, season, and game type
+#' 
+#' `player_game_log()` scrapes the game log for a given set of `player`, 
+#' `season`, and `game_type`.
+#'
+#' @inheritParams player_seasons
+#' @inheritParams roster_statistics
+#' @returns data.frame with one row per game
+#' @examples
+#' Martin_Necas_game_log_regular_20242025 <- player_game_log(
+#'   player    = 8480039,
+#'   season    = 20242025,
+#'   game_type = 2
 #' )
 #' @export
 
-get_player_game_log <- function(
-    player=8480039,
-    season=get_season_now()$seasonId,
-    game_type=2
-  ) {
-  out <- nhl_api(
-    path=sprintf('player/%s/game-log/%s/%s', player, season, game_type),
-    type=1
+player_game_log <- function(
+  player    = 8478402, 
+  season    = 'now', 
+  game_type = ''
+) {
+  tryCatch(
+    expr = {
+      log <- nhl_api(
+        path = sprintf(
+          'v1/player/%s/game-log/%s/%s', 
+          player, 
+          season, 
+          game_type
+        ),
+        type = 'w'
+      )
+      log$playerStatsSeasons[0, ]
+      log$gameLog
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  return(tibble::as_tibble(out$gameLog))
 }
 
-#' Get landing by player
+#' Access the spotlight players
 #' 
-#' `get_player_landing()` retrieves information on a `player`, including but not limited to his ID, name, bio-metrics, career statistics, and awards. Access `get_players()` for `player` reference.
-#' 
-#' @param player integer Player ID
-#' @return list with various items
-#' @examples
-#' Mikko_Rantanen_landing <- get_player_landing(player=8478420)
-#' @export
-
-get_player_landing <- function(player=8480039) {
-  out <- nhl_api(
-    path=sprintf('player/%s/landing', player),
-    type=1
-  )
-  if (length(out)==4) {
-    return(list())
-  }
-  return(out)
-}
-
-#' Get 'spotlight' players as of now
-#' 
-#' `get_spotlight_players()` retrieves information on each 'spotlight' player, including but not limited to their ID, name, position, and sweater number.
+#' `spotlight_players()` scrapes the spotlight players.
 #'
-#' @return tibble with one row per player
+#' @returns data.frame with one row per player
 #' @examples
-#' spotlight_players_now <- get_spotlight_players()
+#' spotlight_players <- spotlight_players()
 #' @export
 
-get_spotlight_players <- function() {
-  out <- nhl_api(
-    path='player-spotlight',
-    type=1
+spotlight_players <- function() {
+  nhl_api(
+    path = 'v1/player-spotlight',
+    type = 'w'
   )
-  return(tibble::as_tibble(out))
 }

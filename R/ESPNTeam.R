@@ -1,52 +1,71 @@
-#' Get ESPN teams by season
+#' Access all the ESPN teams
 #' 
-#' `get_espn_teams()` retrieves ESPN hyperlinks for each team for a given `season`; the hyperlinks are formatted in `base/seasons/{ESPN Season ID}/coaches/{ESPN Team ID}?query`. Access `get_seasons()` for `season` reference. May soon be reworked to only return the ESPN Team IDs.
+#' `espn_teams()` scrapes all the ESPN teams.
 #' 
-#' @param season integer Season in YYYY
-#' @return tibble with one row per team
+#' @returns data.frame with one row per ESPN team
 #' @examples
-#' ESPN_teams_20242025 <- get_espn_teams(2025)
+#' all_ESPN_teams <- espn_teams()
 #' @export
 
-get_espn_teams <- function(season=get_season_now()$seasonId%%10000) {
-  out <- espn_api(
-    path=sprintf('seasons/%s/teams', season),
-    query=list(lang='en', region='us', limit=1000),
-    type=2
-  )
-  return(tibble::as_tibble(out$items))
+espn_teams <- function() {
+  page <- 1
+  all_teams <- list()
+  repeat {
+    teams <- espn_api(
+      path  = 'teams',
+      query = list(limit = 1000, page = page),
+      type  = 'c'
+    )
+    df   <- as.data.frame(teams$items, stringsAsFactors = FALSE)
+    all_teams[[length(all_teams) + 1]] <- df
+    if (nrow(df) < 1000) break
+    page <- page + 1
+  }
+  out <- do.call(rbind, all_teams)
+  id  <- sub('.*teams/([0-9]+)\\?lang.*', '\\1', out[[1]])
+  data.frame(id = id, stringsAsFactors = FALSE)
 }
 
-#' Get team by season and ESPN Team ID
+#' Access the ESPN summary for a team
 #' 
-#' `get_espn_team()` retrieves information on a `team` for a given `season`, including but not limited to its name and logo URL. Access `get_espn_teams()` for `team` and `get_seasons()` for `season` references.
+#' `espn_team_summary()` scrapes the ESPN summary for a `team`.
 #' 
-#' @param team integer ESPN Team ID
-#' @param season integer Season in YYYY
-#' @return list with various items
+#' @param team integer ID (e.g., 1); see [espn_teams()] for 
+#' reference
+#' @returns data.frame with one row
 #' @examples
-#' ESPN_BOS_20242025 <- get_espn_team(team=1, season=2025)
+#' ESPN_summary_Boston_Bruins <- espn_team_summary(team = 1)
 #' @export
 
-get_espn_team <- function(team=1, season=get_season_now()$seasonId%%10000) {
-  out <- espn_api(
-    path=sprintf('seasons/%s/teams/%s', season, team),
-    query=list(lang='en', region='us', limit=1000),
-    type=2
+espn_team_summary <- function(team = 3988803) {
+  get_or_na <- function(x, ...) {
+    tryCatch({
+      for (nm in list(...)) {
+        if (is.null(x)) return(NA)
+        x <- x[[nm]]
+      }
+      if (is.null(x)) NA else x
+    }, error = function(e) NA)
+  }
+  team <- tryCatch(
+    espn_api(
+      path = sprintf('teams/%s', team),
+      type = 'c'
+    ),
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      return(NULL)
+    }
   )
-  keeps <- setdiff(names(out), c(
-    'record',
-    'venue',
-    'groups',
-    'statistics',
-    'leaders',
-    'injuries',
-    'awards',
-    'franchise',
-    'events',
-    'transactions',
-    'athletes',
-    'coaches'
-  ))
-  return(out[keeps])
+  if (is.null(team)) {
+    return(data.frame())
+  }
+  data.frame(
+    location = get_or_na(team, 'location'),
+    name     = get_or_na(team, 'name'),
+    fullName = get_or_na(team, 'displayName'),
+    triCode  = get_or_na(team, 'abbreviation'),
+    isActive = get_or_na(team, 'isActive'),
+    stringsAsFactors = FALSE
+  )
 }

@@ -1,275 +1,453 @@
-#' Get all teams
+#' Access all the teams
 #' 
-#' `get_teams()` retrieves information on each team, including but not limited to their ID, name, and 3-letter code.
+#' `teams()` scrapes all the teams.
 #' 
-#' @return tibble with one row per team
+#' @returns data.frame with one row per team
 #' @examples
-#' all_teams <- get_teams()
+#' all_teams <- teams()
 #' @export
 
-get_teams <- function() {
-  out <- nhl_api(
-    path='team',
-    query=list(limit=-1),
-    type=2
-  )
-  return(tibble::as_tibble(out$data))
+teams <- function() {
+  teams <- nhl_api(
+    path = 'en/team',
+    type = 's'
+  )$data
+  teams[order(teams$id), ]
 }
 
-#' Get season(s) for which team played in regular season and/or playoffs
+#' Access the season(s) and game type(s) in which a team played
 #' 
-#' `get_team_seasons()` retrieves information on each season for a given `team`, including but not limited to their ID and game-type(s). Access `get_teams()` for `team` reference.
+#' `team_seasons()` scrapes the season(s) and game type(s) in which a team 
+#' played in the NHL.
 #' 
-#' @param team 3-letter Code
-#' @return tibble with one row per season
+#' @param team integer ID (e.g., 21), character full name (e.g., 'Colorado 
+#' Avalanche'), OR three-letter code (e.g., 'COL'); see [teams()] for 
+#' reference; ID is preferable as there now exists duplicate three-letter codes 
+#' (i.e., 'UTA' for 'Utah Hockey Club' and 'Utah Mammoth')
+#' @returns data.frame with one row per season
 #' @examples
-#' COL_seasons <- get_team_seasons(team='COL')
+#' COL_seasons <- team_seasons(team = 21)
 #' @export
 
-get_team_seasons <- function(team='BOS') {
-  out <- nhl_api(
-    path=sprintf('club-stats-season/%s', team),
-    type=1
-  )
-  if (length(out)==4) {
-    return(tibble::tibble())
-  }
-  return(tibble::as_tibble(out))
-}
-
-#' Get team statistics
-#' 
-#' `get_team_statistics()` retrieves information on each team or game for a given set of `season`, `game_types`, and `report`. `dates` must be given when paired with `is_game` as the default range will return incomplete data (too wide).  Access `get_configuration()` for what information each combination of `report`, `is_aggregate` and `is_game` can provide. Access `get_team_seasons()` for `season` and `dates` references. Will soon be reworked for easier access.
-#' 
-#' @param season integer in YYYYYYYY
-#' @param game_types vector of integers where 1=pre-season, 2=regular, and 
-#'                   3=playoffs
-#' @param dates vector of strings in 'YYYY-MM-DD'
-#' @param report string
-#' @param is_aggregate boolean
-#' @param is_game boolean
-#' @return tibble with one row per team or game
-#' @examples
-#' playoff_team_stf_20242025 <- get_team_statistics(
-#'   season=20242025,
-#'   report='scoretrailfirst',
-#'   game_types=c(3)
-#' )
-#' 
-#' @export
-
-get_team_statistics <- function(
-    season=get_season_now()$seasonId,
-    report='summary',
-    is_aggregate=FALSE,
-    is_game=FALSE,
-    dates=c('2025-01-01'),
-    game_types=1:3
-) {
-  if (is_game) {
-    for (date in dates) {
-      if (!grepl('^\\d{4}-\\d{2}-\\d{2}$', date)) {
-        stop('date in `dates` must be in \'YYYY-MM-DD\' format', call.=FALSE)
-      }
+team_seasons <- function(team = 1) {
+  tryCatch(
+    expr = {
+      nhl_api(
+        path = sprintf('v1/club-stats-season/%s', to_team_tri_code(team)),
+        type = 'w'
+      )
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
     }
-    out <- nhl_api(
-      path=sprintf('team/%s', report),
-      query=list(
-        limit=-1,
-        isGame=TRUE,
-        isAggregate=is_aggregate,
-        cayenneExp=sprintf(
-          'seasonId=%s and gameDate in (%s) and gameTypeId in (%s)',
-          season,
-          paste0('\'', dates, '\'', collapse=','),
-          paste(game_types, collapse=',')
-        )
-      ),
-      type=2
-    )
-  }
-  else {
-    out <- nhl_api(
-      path=sprintf('team/%s', report),
-      query=list(
-        limit=-1,
-        isAggregate=is_aggregate,
-        cayenneExp=sprintf(
-          'seasonId=%s and gameTypeId in (%s)',
-          season,
-          paste(game_types, collapse=',')
-        )
-      ),
-      type=2
-    )
-  }
-  return(tibble::as_tibble(out$data))
+  )
 }
 
-#' Get roster by team, season, and player-type
+#' Access the configurations for team reports
 #' 
-#' `get_team_roster()` retrieves information on each player for a given set of `team`, `season`, and `player_type`, including but not limited to their ID, name, bio-metrics, and birth date and location. Access `get_teams()` for `team` and `get_team_seasons()` for `season` references.
+#' `team_report_configurations()` scrapes the configurations for 
+#' [team_season_report()] and [team_game_report()].
 #' 
-#' @param team string 3-letter Code
-#' @param season integer in YYYYYYYY
-#' @param player_type string of 'forwards', 'defensemen', or 'goalies'
-#' @return tibble with one row per player
+#' @returns list with various items
 #' @examples
-#' COL_defensemen_20242025 <- get_team_roster(
-#'   team='COL',
-#'   season=20242025,
-#'   player_type='defensemen'
+#' team_report_configs <- team_report_configurations()
+#' @export
+
+team_report_configurations <- function() {
+  nhl_api(
+    path = 'en/config',
+    type = 's'
+  )$teamReportData
+}
+
+#' @rdname team_report_configurations
+#' @export
+team_report_configs <- function() {
+  team_report_configurations()
+}
+
+#' Access various reports for a season, game type, and category for all 
+#' the teams by season
+#' 
+#' `team_season_report()` scrapes various reports for a given set of `season`, 
+#' `game_type`, and `category` for all the teams by season.
+#' 
+#' @inheritParams roster_statistics
+#' @param category character (e.g., 'leadingtrailing'); see 
+#' [team_report_configurations()] for reference
+#' @returns data.frame with one row per team
+#' @examples
+#' situational_team_season_report_playoffs_20212022 <- team_season_report(
+#'   season    = 20212022, 
+#'   game_type = 3, 
+#'   category  = 'leadingtrailing'
 #' )
 #' @export
 
-get_team_roster <- function(
-    team='BOS',
-    season=get_season_now()$seasonId,
-    player_type='forwards'
+team_season_report <- function(
+  season    = season_now(), 
+  game_type = game_type_now(), 
+  category  = 'summary'
 ) {
-  out <- nhl_api(
-    path=sprintf('roster/%s/%s', team, season),
-    type=1
+  tryCatch(
+    expr = {
+      report <- nhl_api(
+        path  = sprintf('en/team/%s', category),
+        query = list(
+          limit       = -1,
+          isAggregate = FALSE,
+          isGame      = FALSE,
+          cayenneExp  = sprintf(
+            'seasonId = %s and gameTypeId = %s', 
+            season,
+            game_type
+          )
+        ),
+        type  = 's'
+      )$data
+      report[order(report$teamId), ]
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  return(tibble::as_tibble(out[[player_type]]))
 }
 
-#' Get roster statistics by team, season, game-type, and player-type
+#' Access various reports for a season, game type, and category for all 
+#' the teams by game
 #' 
-#' `get_team_roster_statistics()` retrieves information on each player for a given set of `team`, `season`, `game_type` and `player_type`, including but not limited to their ID, name, and statistics. Access `get_teams()` for `team` and `get_team_seasons()` for `season` references.
+#' `team_game_report()` scrapes various reports for a given set of `season`, 
+#' `game_type`, and `category` for all the teams by game.
 #' 
-#' @param team string 3-letter Code
-#' @param season integer in YYYYYYYY
-#' @param game_type integer where 2=regular and 3=playoffs
-#' @param player_type string of 'skaters' or 'goalies'
-#' @return tibble with one row per player
+#' @inheritParams team_season_report
+#' @returns data.frame with one row per game per team
 #' @examples
-#' regular_COL_goalies_statistics_20242025 <- get_team_roster_statistics(
-#'   team='COL',
-#'   season=20242025,
-#'   game_type=2,
-#'   player_type='goalies'
+#' situational_team_game_report_playoffs_20212022 <- team_game_report(
+#'   season    = 20212022, 
+#'   game_type = 3, 
+#'   category  = 'leadingtrailing'
 #' )
 #' @export
 
-get_team_roster_statistics <- function(
-    team='BOS',
-    season=get_season_now()$seasonId,
-    game_type=2,
-    player_type='skaters'
+team_game_report <- function(
+  season    = season_now(), 
+  game_type = game_type_now(), 
+  category  = 'summary'
 ) {
-  out <- nhl_api(
-    path=sprintf('club-stats/%s/%s/%s', team, season, game_type),
-    type=1
+  tryCatch(
+    expr = {
+      report <- nhl_api(
+        path  = sprintf('en/team/%s', category),
+        query = list(
+          limit       = -1,
+          isAggregate = FALSE,
+          isGame      = TRUE,
+          cayenneExp  = sprintf(
+            'seasonId = %s and gameTypeId = %s', 
+            season,
+            game_type
+          )
+        ),
+        type  = 's'
+      )$data
+      report[order(report$teamId, report$gameId), ]
+    },
+    error = function(e) {
+      
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  return(tibble::as_tibble(out[[player_type]]))
 }
 
-#' Get prospects by team and player-type
+#' Access the statistics for all the teams by season and game type
 #' 
-#' `get_team_prospects()` retrieves information on each prospect for a given set of `team` and `player_type`, including but not limited to their ID, name, bio-metrics, and birth date and location. Access `get_teams()` for `team` reference.
+#' `team_season_statistics()` scrapes the statistics for all the teams by 
+#' season and game type.
 #' 
-#' @param team string 3-letter Code
-#' @param player_type string of 'forwards', 'defensemen', or 'goalies'
-#' @return tibble with one row per player
+#' @returns data.frame with one row per team per season per game type
 #' @examples
-#' COL_defensemen_prospects <- get_team_prospects(
-#'   team='COL',
-#'   player_type='defensemen'
+#' # May take >5s, so skip.
+#' \donttest{team_season_statistics <- team_season_statistics()}
+#' @export
+
+team_season_statistics <- function() {
+  stats <- nhl_api(
+    path = 'team-stats',
+    type = 'r'
+  )$data
+  stats[order(
+    stats$`id.db:TEAMID`, 
+    stats$`id.db:SEASON`, 
+    stats$`id.db:GAMETYPE`
+  ), ]
+}
+
+#' @rdname team_season_statistics
+#' @export
+team_season_stats <- function() {
+  team_season_statistics()
+}
+
+#' Access the roster for a team, season, and position
+#' 
+#' `roster()` scrapes the roster for a given set of `team`, `season`, and 
+#' `position`.
+#' 
+#' @inheritParams team_seasons
+#' @param season integer in YYYYYYYY (e.g., 20242025); see [seasons()] for 
+#' reference
+#' @param position character of 'f'/'forwards', 'd'/'defensemen', or 
+#' 'g'/'goalies'
+#' @returns data.frame with one row per player
+#' @examples
+#' COL_defensemen_20242025 <- roster(
+#'   team     = 21,
+#'   season   = 20242025,
+#'   position = 'D'
 #' )
 #' @export
 
-get_team_prospects <- function(team='BOS', player_type='forwards') {
-  out <- nhl_api(
-    path=sprintf('prospects/%s', team),
-    type=1
+roster <- function(
+  team     = 1,
+  season   = 'current',
+  position = 'forwards'
+) {
+  tryCatch(
+    expr = {
+      position <- switch(
+        substring(tolower(position), 1, 1),
+        f = 'forwards',
+        d = 'defensemen',
+        g = 'goalies'
+      )
+      nhl_api(
+        path = sprintf('v1/roster/%s/%s', to_team_tri_code(team), season),
+        type = 'w'
+      )[[position]]
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  return(tibble::as_tibble(out[[player_type]]))
 }
 
-#' Get schedule by team and season
+#' Access the roster statistics for a team, season, game type, and position
 #' 
-#' `get_team_schedule()` retrieves information on each game for a given set of `team` and `season`, including but not limited to their ID, season, type, start date and time, and home and visiting teams' IDs and scores. Access `get_teams()` for `team` and `get_team_seasons()` for `season` references.
+#' `roster_statistics()` scrapes the roster statistics for a given set of 
+#' `team`, `season`, `game_type`, and `position`.
 #' 
-#' @param team string 3-letter Code
-#' @param season integer in YYYYYYYY
-#' @return tibble with one row per game
+#' @inheritParams roster
+#' @param game_type integer in 1:3 (where 1 = pre-season, 2 = regular season, 3 
+#' = playoff/post-season) OR character of 'pre', 'regular', or 
+#' playoff'/'post'; see [seasons()] for reference; most functions will NOT 
+#' support pre-season
+#' @param position character of 's'/'skaters' or 'g'/'goalies'
+#' @returns data.frame with one row per player
 #' @examples
-#' COL_schedule_20242025 <- get_team_schedule(team='COL', season=20242025)
+#' COL_goalies_statistics_regular_20242025 <- roster_statistics(
+#'   team      = 21,
+#'   season    = 20242025,
+#'   game_type = 2,
+#'   position  = 'G'
+#' )
 #' @export
 
-get_team_schedule <- function(team='BOS', season=get_season_now()$seasonId) {
-  out <- nhl_api(
-    path=sprintf('club-schedule-season/%s/%s', team, season),
-    type=1
+roster_statistics <- function(
+  team      = 1,
+  season    = 'now',
+  game_type = '',
+  position  = 'skaters'
+) {
+  tryCatch(
+    expr = {
+      position <- switch(
+        substring(tolower(position), 1, 1),
+        s = 'skaters',
+        g = 'goalies'
+      )
+      nhl_api(
+        path = sprintf(
+          'v1/club-stats/%s/%s/%s', 
+          to_team_tri_code(team), 
+          season, 
+          to_game_type_id(game_type)
+        ),
+        type = 'w'
+      )[[position]]
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  return(tibble::as_tibble(out$games))
 }
 
-#' Get team scoreboard as of now
-#' 
-#' `get_team_scoreboard()` retrieves information on the current game for a given `team`, including but not limited to their ID, season, type, start date and time, and home and visiting teams' IDs and scores. Access `get_teams()` for `team` reference.
-#' 
-#' @param team string 3-letter Code
-#' @return tibble with one row per game
-#' @examples
-#' FLA_scoreboard_now <- get_team_scoreboard(team='FLA')
+#' @rdname roster_statistics
 #' @export
-
-get_team_scoreboard <- function(team='BOS') {
-  out <- nhl_api(
-    path=sprintf('scoreboard/%s/now', team),
-    type=1
-  )
-  if (is.null(out$gamesByDate)) {
-    return(tibble::tibble())
-  }
-  sub <- out$gamesByDate[out$gamesByDate$date==out$focusedDate, , drop=FALSE]
-  if (nrow(sub)==0) {
-    return(tibble::tibble())
-  }
-  tibble::as_tibble(sub$games[[1]])
+roster_stats <- function(
+  team      = 1,
+  season    = 'now',
+  game_type = '',
+  position  = 'skaters'
+) {
+  roster_statistics(team, season, game_type, position)
 }
 
-#' Get all franchises
+#' Access the prospects for a team and position
 #' 
-#' `get_franchises()` retrieves information on each franchise, including but not limited to their ID; first and last seasons' IDs; captain, coach, and general manager histories; and retired numbers.
+#' `team_prospects()` scrapes the prospects for a given set of `team` and 
+#' `position`.
 #' 
-#' @importFrom magrittr %>%
-#' @return tibble with one row per franchise
+#' @inheritParams roster
+#' @returns data.frame with one row per player
 #' @examples
-#' all_franchises <- get_franchises()
+#' COL_forward_prospects <- team_prospects(
+#'   team     = 21,
+#'   position = 'F'
+#' )
 #' @export
 
-get_franchises <- function() {
-  out <- nhl_api(
-    path='franchise',
-    type=3
+team_prospects <- function(team = 1, position = 'forwards') {
+  tryCatch(
+    expr = {
+      position <- switch(
+        substring(tolower(position), 1, 1),
+        f = 'forwards',
+        d = 'defensemen',
+        g = 'goalies'
+      )
+      nhl_api(
+        path = sprintf('v1/prospects/%s', to_team_tri_code(team)),
+        type = 'w'
+      )[[position]]
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  out <- out$data %>% 
-    dplyr::select(-firstSeasonId, -mostRecentTeamId, -teamAbbrev)
-  out2 <- nhl_api(
-    path='franchise-detail',
-    type=3
-  )
-  merged <- out2$data %>% 
-    dplyr::left_join(out, by='id')
-  return(tibble::as_tibble(merged))
 }
 
-#' Get all franchises' season-by-season results
+#' Access the schedule for a team and season
 #' 
-#' `get_franchise_season_by_season()` retrieves information on each franchise's season, including but not limited to their ID, decision, final playoff round, and statistics.
+#' `team_season_schedule()` scrapes the schedule for a given set of `team` 
+#' and `season`.
 #' 
-#' @return tibble with one row per franchise's season
+#' @inheritParams roster
+#' @returns data.frame with one row per game
 #' @examples
-#' all_franchise_sbs <- get_franchise_season_by_season()
+#' COL_schedule_20252026 <- team_season_schedule(
+#'   team   = 21, 
+#'   season = 20252026
+#' )
 #' @export
 
-get_franchise_season_by_season <- function() {
-  out <- nhl_api(
-    path='franchise-season-results',
-    type=3
+team_season_schedule <- function(team = 1, season = 'now') {
+  tryCatch(
+    expr = {
+      nhl_api(
+        path = sprintf(
+          'v1/club-schedule-season/%s/%s', 
+          to_team_tri_code(team), 
+          season
+        ),
+        type = 'w'
+      )$games
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
   )
-  return(tibble::as_tibble(out$data))
+}
+
+#' Access the schedule for a team and month
+#' 
+#' `team_month_schedule()` scrapes the schedule for a given set of `team` 
+#' and `month`.
+#' 
+#' @inheritParams team_seasons
+#' @param month character in 'YYYY-MM' (e.g., '2025-01'); see [seasons()] 
+#' for reference
+#' @returns data.frame with one row per game
+#' @examples
+#' COL_schedule_December_2025 <- team_month_schedule(
+#'   team  = 21, 
+#'   month = '2025-12'
+#' )
+#' @export
+
+team_month_schedule <- function(team = 1, month = 'now') {
+  tryCatch(
+    expr = {
+      nhl_api(
+        path = sprintf(
+          'v1/club-schedule/%s/month/%s', 
+          to_team_tri_code(team), 
+          month
+        ),
+        type = 'w'
+      )$games
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' Access the schedule for a team and week since a date
+#' 
+#' `team_week_schedule()` scrapes the schedule for a given set of `team` and 
+#' a week since `date`.
+#' 
+#' @inheritParams team_seasons
+#' @inheritParams standings
+#' @returns data.frame with one row per game
+#' @examples
+#' COL_schedule_Family_Week_2025 <- team_week_schedule(
+#'   team = 21,
+#'   date = '2025-10-06'
+#' )
+#' @export
+
+team_week_schedule <- function(team = 1, date = 'now') {
+  tryCatch(
+    expr = {
+      nhl_api(
+        path = sprintf(
+          'v1/club-schedule/%s/week/%s', 
+          to_team_tri_code(team), 
+          date
+        ),
+        type = 'w'
+      )$games
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' Access all the team logos
+#' 
+#' `team_logos()` scrapes all the team logos.
+#' 
+#' @returns data.frame with one row per logo
+#' @examples
+#' all_team_logos <- team_logos()
+#' @export
+
+team_logos <- function() {
+  logos <- nhl_api(
+    path = 'logo',
+    type = 'r'
+  )$data
+  logos$id <- NULL
+  logos[order(logos$teamId, logos$startSeason), ]
 }

@@ -1,33 +1,33 @@
-#' Get all awards
+#' Access all the awards
 #' 
-#' `get_awards()` retrieves information on each award, including but not limited to their trophy ID, name, description, creation date, and image URL.
+#' `awards()` scrapes all the awards.
 #' 
-#' @return tibble with one row per award
+#' @returns data.frame with one row per award
 #' @examples
-#' all_awards <- get_awards()
+#' all_awards <- awards()
 #' @export
 
-get_awards <- function() {
-  out <- nhl_api(
-    path='trophy',
-    type=3
-  )
-  return(tibble::as_tibble(out$data))
+awards <- function() {
+  nhl_api(
+    path = 'trophy',
+    type = 'r'
+  )$data
 }
 
-#' Get all award winners/finalists
+#' Access all the award winners/finalists
 #' 
-#' `get_award_winners()` retrieves information on each award winner or finalist, including but not limited to their player, trophy, and season IDs; name; and vote count. 
+#' `award_winners()` scrapes all the award winners/finalists.
 #' 
-#' @return tibble with one row per winner/finalist
+#' @returns data.frame with one row per winner/finalist
 #' @examples
-#' all_award_winners <- get_award_winners()
+#' all_award_winners <- award_winners()
 #' @export
 
-get_award_winners <- function() {
-  out <- nhl_api(
-    path='award-details',
-    type=3
-  )
-  return(tibble::as_tibble(out$data))
+award_winners <- function() {
+  winners    <- nhl_api(
+    path = 'award-details',
+    type = 'r'
+  )$data
+  winners$id <- NULL
+  winners[order(winners$trophyId, winners$seasonId, winners$status), ]
 }
