@@ -1,3 +1,8 @@
+# nhlscraper 0.4.1.9000
+
+# nhlscraper 0.4.1
+- All API call functions are now wrapped with try-catch.
+
 # nhlscraper 0.4.0
 
 - Website now features proper example.
