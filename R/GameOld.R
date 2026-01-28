@@ -165,7 +165,7 @@ get_wsc_play_by_play <- function(game = 2023030417) {
 
 #' Access the shift charts for a game
 #' 
-#' `get_shift_charts()` is deprecated. Use [shifts()] instead.
+#' `get_shift_charts()` is deprecated. Use [shift_chart()] instead.
 #'
 #' @inheritParams gc_summary
 #' @returns data.frame with one row per shift
@@ -173,14 +173,34 @@ get_wsc_play_by_play <- function(game = 2023030417) {
 
 get_shift_charts <- function(game = 2023030417) {
   .Deprecated(
-    new     = 'shifts()',
+    new     = 'shift_chart()',
     package = 'nhlscraper',
     msg     = paste(
       '`get_shift_charts()` is deprecated.',
-      'Use `shifts()` instead.'
+      'Use `shift_chart()` instead.'
     )
   )
-  shifts(game)
+  shift_chart(game)
+}
+
+#' Access the shift charts for a game
+#' 
+#' `shifts()` is deprecated. Use [shift_chart()] instead.
+#'
+#' @inheritParams gc_summary
+#' @returns data.frame with one row per shift
+#' @export
+
+shifts <- function(game = 2023030417) {
+  .Deprecated(
+    new     = 'shift_chart()',
+    package = 'nhlscraper',
+    msg     = paste(
+      '`get_shift_charts()` is deprecated.',
+      'Use `shift_chart()` instead.'
+    )
+  )
+  shift_chart(game)
 }
 
 #' Access the real-time game odds for a country by partnered bookmaker

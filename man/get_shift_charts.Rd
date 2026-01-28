@@ -13,5 +13,5 @@ get_shift_charts(game = 2023030417)
 data.frame with one row per shift
 }
 \description{
-\code{get_shift_charts()} is deprecated. Use \code{\link[=shifts]{shifts()}} instead.
+\code{get_shift_charts()} is deprecated. Use \code{\link[=shift_chart]{shift_chart()}} instead.
 }
