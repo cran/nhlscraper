@@ -1,7 +1,7 @@
 #' Access all the ESPN players
-#' 
-#' `espn_players()` scrapes all the ESPN players.
-#' 
+#'
+#' `espn_players()` retrieves all the ESPN players as a `data.frame` where each row represents ESPN player and includes detail on person-level profile context and performance history with situational splits.
+#'
 #' @returns data.frame with one row per ESPN player
 #' @examples
 #' all_ESPN_players <- espn_players()
@@ -24,7 +24,7 @@ espn_players <- function() {
     }
     out <- do.call(rbind, all_players)
     id  <- sub('.*athletes/([0-9]+)\\?lang.*', '\\1', out[[1]])
-    data.frame(id = id, stringsAsFactors = FALSE)
+    data.frame(espnPlayerId = id, stringsAsFactors = FALSE)
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
     data.frame()
@@ -32,11 +32,12 @@ espn_players <- function() {
 }
 
 #' Access the ESPN summary for a player
-#' 
-#' `espn_player_summary()` scrapes the ESPN summary for a `player`.
-#' 
+#'
+#' `espn_player_summary()` retrieves the ESPN summary for a player as a `data.frame` where each row represents one result and includes detail on game timing, matchup state, scoring flow, and situational event detail.
+#'
 #' @param player integer ID (e.g., 3988803); see [espn_players()] for 
 #' reference
+#'
 #' @returns data.frame with one row
 #' @examples
 #' ESPN_summary_Charlie_McAvoy <- espn_player_summary(player = 3988803)
@@ -54,7 +55,7 @@ espn_player_summary <- function(player = 3988803) {
   }
   player <- tryCatch(
     espn_api(
-      path = sprintf('players/%s', player),
+      path = sprintf('athletes/%s', player),
       type = 'c'
     ),
     error = function(e) {
@@ -66,21 +67,21 @@ espn_player_summary <- function(player = 3988803) {
     return(data.frame())
   }
   data.frame(
-    firstName    = get_or_na(player, 'firstName'),
-    lastName     = get_or_na(player, 'lastName'),
-    fullName     = get_or_na(player, 'fullName'),
+    playerFirstName = get_or_na(player, 'firstName'),
+    playerLastName  = get_or_na(player, 'lastName'),
+    playerFullName = get_or_na(player, 'fullName'),
     dateOfBirth  = get_or_na(player, 'dateOfBirth'),
     birthCountry = get_or_na(player, 'birthPlace', 'country'),
     birthCity    = get_or_na(player, 'birthPlace', 'city'),
     age          = get_or_na(player, 'age'),
     height       = get_or_na(player, 'height'),
     weight       = get_or_na(player, 'weight'),
-    hand         = get_or_na(player, 'hand', 'abbreviation'),
+    handCode     = get_or_na(player, 'hand', 'abbreviation'),
     draftYear    = get_or_na(player, 'draft', 'year'),
     draftRound   = get_or_na(player, 'draft', 'round'),
     draftPick    = get_or_na(player, 'draft', 'selection'),
     debutYear    = get_or_na(player, 'debutYear'),
-    position     = get_or_na(player, 'position', 'abbreviation'),
+    positionCode = get_or_na(player, 'position', 'abbreviation'),
     experience   = get_or_na(player, 'experience', 'years'),
     isActive     = get_or_na(player, 'active'),
     stringsAsFactors = FALSE

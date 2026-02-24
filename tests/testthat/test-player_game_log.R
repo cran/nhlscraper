@@ -1,12 +1,10 @@
-test_that(
-  'player_game_log(8478402, 20242025, 3) returns non-empty data.frame', {
+test_that("player_game_log(8478402, 20242025, 2) returns non-empty data.frame", {
   skip_if_offline()
-  test <- player_game_log(8478402, 20242025, 3)
+  test <- player_game_log(8478402, 20242025, 2)
   expect_true(is.data.frame(test) && nrow(test) > 0)
-  }
-)
+})
 
-test_that('player_game_log(0) returns message and empty data.frame', {
+test_that("player_game_log(0) returns message and empty data.frame", {
   skip_if_offline()
   expect_message(
     test <- player_game_log(0),

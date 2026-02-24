@@ -1,8 +1,9 @@
 #' Access the ESPN games for a season
-#' 
-#' `espn_games()` scrapes the ESPN games for a given `season`.
-#' 
+#'
+#' `espn_games()` retrieves the ESPN games for a season as a `data.frame` where each row represents ESPN and includes detail on game timing, matchup state, scoring flow, and situational event detail.
+#'
 #' @inheritParams roster
+#'
 #' @returns data.frame with one row per ESPN game
 #' @examples
 #' ESPN_games_20242025 <- espn_games(season = 20242025)
@@ -12,12 +13,12 @@ espn_games <- function(season = season_now()) {
   tryCatch(
     expr = {
       seasons_tbl <- seasons()
-      season_row  <- seasons_tbl[seasons_tbl$id == season, ]
-      start_src   <- season_row$preseasonStartdate
+      season_row  <- seasons_tbl[seasons_tbl$seasonId == season, , drop = FALSE]
+      start_src   <- season_row$preseasonStartdate[[1]]
       if (is.null(start_src) || is.na(start_src)) {
-        start_src <- season_row$startDate
+        start_src <- season_row$startDate[[1]]
       }
-      end_src     <- season_row$endDate
+      end_src     <- season_row$endDate[[1]]
       if (!inherits(start_src, 'Date')) {
         start_date <- as.Date(as.character(start_src))
       } else {
@@ -53,7 +54,7 @@ espn_games <- function(season = season_now()) {
       }
       out <- do.call(rbind, all_events)
       id  <- sub('.*events/([0-9]+)\\?lang.*', '\\1', out[[1]])
-      data.frame(id = id, stringsAsFactors = FALSE)
+      data.frame(espnGameId = id, stringsAsFactors = FALSE)
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -63,11 +64,12 @@ espn_games <- function(season = season_now()) {
 }
 
 #' Access the ESPN summary for a game
-#' 
-#' `espn_game_summary()` scrapes the ESPN summary for a `game`.
-#' 
+#'
+#' `espn_game_summary()` retrieves the ESPN summary for a game as a nested `list` that separates summary and detail blocks for date/season filtering windows and chronological context, venue/location geography and regional metadata, and playoff-series progression, round status, and series leverage.
+#'
 #' @param game integer ID (e.g., 401777460); see [espn_games()] for 
 #' reference
+#'
 #' @returns list with various items
 #' @examples
 #' ESPN_summary_SCF_20242025 <- espn_game_summary(game = 401777460)
@@ -80,6 +82,7 @@ espn_game_summary <- function(game = 401777460) {
         path  = sprintf('events/%s/competitions/%s', game, game),
         type  = 'c'
       )
+      names(game)[names(game) == 'id'] <- 'espnGameId'
       keeps <- setdiff(names(game), c(
         '$ref',
         'guid',
@@ -125,10 +128,11 @@ espn_game_summary <- function(game = 401777460) {
 }
 
 #' Access the ESPN play-by-play for a game
-#' 
-#' `espn_play_by_play()` scrapes the ESPN play-by-play for a given `game`.
-#' 
+#'
+#' `espn_play_by_play()` retrieves the ESPN play-by-play for a game as a `data.frame` where each row represents event and includes detail on game timeline state, period/clock progression, and matchup flow, team identity, affiliation, and matchup-side context, and situational splits across home/road, strength state, and overtime/shootout states.
+#'
 #' @inheritParams espn_game_summary
+#'
 #' @returns data.frame with one row per event (play)
 #' @examples
 #' ESPN_pbp_SCF_20242025 <- espn_play_by_play(game = 401777460)
@@ -137,11 +141,20 @@ espn_game_summary <- function(game = 401777460) {
 espn_play_by_play <- function(game = 401777460) {
   tryCatch(
     expr = {
-      espn_api(
+      plays <- espn_api(
         path  = sprintf('events/%s/competitions/%s/plays', game, game),
         query = list(lang = 'en', region = 'us', limit = 1000),
         type  = 'c'
       )$items
+      names(plays)[names(plays) == 'id'] <- 'espnEventId'
+      names(plays)[names(plays) == 'coordinate.x'] <- 'xCoord'
+      names(plays)[names(plays) == 'coordinate.y'] <- 'yCoord'
+      old_names <- names(plays)
+      keep_ref <- grepl('(^\\$ref$|\\.\\$ref$)', old_names)
+      new_names <- dot_to_camel(old_names)
+      names(plays) <- ifelse(keep_ref, old_names, new_names)
+      names(plays)[names(plays) == 'periodNumber'] <- 'period'
+      plays
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -158,10 +171,11 @@ espn_pbp <- function(game = 401777460) {
 }
 
 #' Access the ESPN odds for a game
-#' 
-#' `espn_game_odds()` scrapes the ESPN odds for a given `game`.
+#'
+#' `espn_game_odds()` retrieves the ESPN odds for a game as a `data.frame` where each row represents provider and includes detail on team identity, affiliation, and matchup-side context plus betting market snapshots with side/total prices and provider variation.
 #'
 #' @inheritParams espn_game_summary
+#'
 #' @returns data.frame with one row per provider
 #' @examples
 #' ESPN_odds_SCF_20242025 <- espn_game_odds(game = 401777460)
@@ -170,10 +184,15 @@ espn_pbp <- function(game = 401777460) {
 espn_game_odds <- function(game = 401777460) {
   tryCatch(
     expr = {
-      espn_api(
+      odds <- espn_api(
         path  = sprintf('events/%s/competitions/%s/odds', game, game),
         type  = 'c'
       )$items
+      old_names <- names(odds)
+      keep_ref <- grepl('(^\\$ref$|\\.\\$ref$)', old_names)
+      new_names <- dot_to_camel(old_names)
+      names(odds) <- ifelse(keep_ref, old_names, new_names)
+      odds
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')

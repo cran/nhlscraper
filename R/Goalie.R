@@ -1,8 +1,7 @@
 #' Access the configurations for goalie reports
-#' 
-#' `goalie_report_configurations()` scrapes the configurations for 
-#' [goalie_season_report()] and [goalie_game_report()].
-#' 
+#'
+#' `goalie_report_configurations()` retrieves the configurations for goalie reports as a nested `list` that separates summary and detail blocks for situational splits across home/road, strength state, and overtime/shootout states plus configuration catalogs for valid report categories and filters.
+#'
 #' @returns list with various items
 #' @examples
 #' goalie_report_configs <- goalie_report_configurations()
@@ -29,13 +28,13 @@ goalie_report_configs <- function() {
 
 #' Access various reports for a season, game type, and category for all 
 #' the goalies by season
-#' 
-#' `goalie_season_report()` scrapes various reports for a given set of 
-#' `season`, `game_type`, and `category` for all the goalies by season.
-#' 
+#'
+#' `goalie_season_report()` retrieves various reports for a season, game type, and category for all the goalies by season as a `data.frame` where each row represents player and includes detail on date/season filtering windows and chronological context, player identity, role, handedness, and biographical profile, and production, workload, efficiency, and result-level performance outcomes.
+#'
 #' @inheritParams roster_statistics
 #' @param category character (e.g., 'advanced'); see 
 #' [goalie_report_configurations()] for reference
+#'
 #' @returns data.frame with one row per player
 #' @examples
 #' # May take >5s, so skip.
@@ -68,7 +67,10 @@ goalie_season_report <- function(
         ),
         type  = 's'
       )$data
-      report[order(report$playerId), ]
+      report <- report[order(report$playerId), ]
+      names(report)[names(report) == 'lastName'] <- 'goalieLastName'
+      names(report) <- normalize_team_abbrev_cols(names(report))
+      report
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -79,11 +81,11 @@ goalie_season_report <- function(
 
 #' Access various reports for a season, game type, and category for all 
 #' the goalies by game
-#' 
-#' `goalie_game_report()` scrapes various reports for a given set of 
-#' `season`, `game_type`, and `category` for all the goalies by game.
-#' 
+#'
+#' `goalie_game_report()` retrieves various reports for a season, game type, and category for all the goalies by game as a `data.frame` where each row represents game per goalie and includes detail on game timeline state, period/clock progression, and matchup flow, player identity, role, handedness, and biographical profile, and production, workload, efficiency, and result-level performance outcomes.
+#'
 #' @inheritParams goalie_season_report
+#'
 #' @returns data.frame with one row per game per goalie
 #' @examples
 #' # May take >5s, so skip.
@@ -116,7 +118,10 @@ goalie_game_report <- function(
         ),
         type  = 's'
       )$data
-      report[order(report$playerId, report$gameId), ]
+      report <- report[order(report$playerId, report$gameId), ]
+      names(report)[names(report) == 'lastName'] <- 'goalieLastName'
+      names(report) <- normalize_team_abbrev_cols(names(report))
+      report
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -126,9 +131,9 @@ goalie_game_report <- function(
 }
 
 #' Access the career statistics for all the goalies
-#' 
-#' `goalie_statistics()` scrapes the career statistics for all the goalies.
-#' 
+#'
+#' `goalie_statistics()` retrieves the career statistics for all the goalies as a `data.frame` where each row represents player and includes detail on team identity, affiliation, and matchup-side context, player identity, role, handedness, and biographical profile, and production, workload, efficiency, and result-level performance outcomes.
+#'
 #' @returns data.frame with one row per player
 #' @examples
 #' goalie_stats <- goalie_statistics()
@@ -141,6 +146,9 @@ goalie_statistics <- function() {
       type = 'r'
     )$data
     stats$id <- NULL
+    names(stats)[names(stats) == 'firstName'] <- 'goalieFirstName'
+    names(stats)[names(stats) == 'lastName']  <- 'goalieLastName'
+    names(stats) <- normalize_team_abbrev_cols(names(stats))
     stats[order(stats$playerId), ]
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
@@ -156,10 +164,9 @@ goalie_stats <- function() {
 }
 
 #' Access the career regular season statistics for all the goalies
-#' 
-#' `goalie_regular_statistics()` scrapes the career regular season statistics 
-#' for all the goalies.
-#' 
+#'
+#' `goalie_regular_statistics()` retrieves the career regular season statistics for all the goalies as a `data.frame` where each row represents goalie and includes detail on date/season filtering windows and chronological context, team identity, affiliation, and matchup-side context, and player identity, role, handedness, and biographical profile.
+#'
 #' @returns data.frame with one row per goalie
 #' @examples
 #' goalie_career_regular_statistics <- goalie_regular_statistics()
@@ -172,6 +179,9 @@ goalie_regular_statistics <- function() {
       type = 'r'
     )$data
     stats$id <- NULL
+    names(stats)[names(stats) == 'firstName'] <- 'goalieFirstName'
+    names(stats)[names(stats) == 'lastName']  <- 'goalieLastName'
+    names(stats) <- normalize_team_abbrev_cols(names(stats))
     stats[order(stats$playerId), ]
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
@@ -188,10 +198,9 @@ goalie_regular_stats <- function() {
 
 
 #' Access the statistics for all the goalies by season, game type, and team.
-#' 
-#' `goalie_season_statistics()` scrapes the statistics for all the goalies by 
-#' season, game type, and team.
-#' 
+#'
+#' `goalie_season_statistics()` retrieves the statistics for all the goalies by season, game type, and team as a `data.frame` where each row represents player per season per game type, separated by team if applicable and includes detail on date/season filtering windows and chronological context, team identity, affiliation, and matchup-side context, and player identity, role, handedness, and biographical profile.
+#'
 #' @returns data.frame with one row per player per season per game type, 
 #' separated by team if applicable
 #' @examples
@@ -205,7 +214,12 @@ goalie_season_statistics <- function() {
       type = 'r'
     )$data
     stats$id <- NULL
-    stats[order(stats$playerId, stats$seasonId, stats$gameType), ]
+    stats    <- stats[order(stats$playerId, stats$seasonId, stats$gameType), ]
+    names(stats)[names(stats) == 'firstName'] <- 'goalieFirstName'
+    names(stats)[names(stats) == 'gameType']  <- 'gameTypeId'
+    names(stats)[names(stats) == 'lastName']  <- 'goalieLastName'
+    names(stats) <- normalize_team_abbrev_cols(names(stats))
+    stats
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
     data.frame()
@@ -220,10 +234,9 @@ goalie_season_stats <- function() {
 }
 
 #' Access the statistics for all the goalies by game
-#' 
-#' `goalie_game_statistics()` scrapes the statistics for all the goalies by 
-#' game.
-#' 
+#'
+#' `goalie_game_statistics()` retrieves the statistics for all the goalies by game as a `data.frame` with detail on game timeline state, period/clock progression, and matchup flow, date/season filtering windows and chronological context, and team identity, affiliation, and matchup-side context.
+#'
 #' @returns data.frame with one row per goalie per game
 #' @examples
 #' \donttest{goalie_game_stats <- goalie_game_statistics()}
@@ -236,6 +249,12 @@ goalie_game_statistics <- function() {
       type = 'r'
     )$data
     stats$id <- NULL
+    names(stats)[names(stats) == 'firstName']       <- 'goalieFirstName'
+    names(stats)[names(stats) == 'lastName']        <- 'goalieLastName'
+    names(stats)[names(stats) == 'triCode']         <- 'teamTriCode'
+    names(stats)[names(stats) == 'opponentTriCode'] <- 'opponentTeamTriCode'
+    names(stats)[names(stats) == 'opponentName']    <- 'opponentTeamName'
+    names(stats) <- normalize_team_abbrev_cols(names(stats))
     stats[order(stats$playerId, stats$gameId), ]
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
@@ -251,10 +270,9 @@ goalie_game_stats <- function() {
 }
 
 #' Access the playoff statistics for all the goalies by series
-#' 
-#' `goalie_series_statistics()` scrapes the playoff statistics for all the 
-#' goalies by series.
-#' 
+#'
+#' `goalie_series_statistics()` retrieves the playoff statistics for all the goalies by series as a `data.frame` where each row represents player per series and includes detail on date/season filtering windows and chronological context, team identity, affiliation, and matchup-side context, and player identity, role, handedness, and biographical profile.
+#'
 #' @returns data.frame with one row per player per series
 #' @examples
 #' goalie_series_stats <- goalie_series_statistics()
@@ -267,6 +285,9 @@ goalie_series_statistics <- function() {
       type = 'r'
     )$data
     stats$id <- NULL
+    names(stats)[names(stats) == 'firstName'] <- 'goalieFirstName'
+    names(stats)[names(stats) == 'lastName']  <- 'goalieLastName'
+    names(stats) <- normalize_team_abbrev_cols(names(stats))
     stats
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
@@ -282,10 +303,9 @@ goalie_series_stats <- function() {
 }
 
 #' Access the career scoring statistics for all the goalies
-#' 
-#' `goalie_scoring()` scrapes the career scoring statistics for all the 
-#' goalies.
-#' 
+#'
+#' `goalie_scoring()` retrieves the career scoring statistics for all the goalies as a `data.frame` where each row represents player and includes detail on date/season filtering windows and chronological context, team identity, affiliation, and matchup-side context, and player identity, role, handedness, and biographical profile.
+#'
 #' @returns data.frame with one row per player
 #' @examples
 #' goalie_scoring <- goalie_scoring()
@@ -298,6 +318,9 @@ goalie_scoring <- function() {
       type = 'r'
     )$data
     scoring$id <- NULL
+    names(scoring)[names(scoring) == 'firstName'] <- 'goalieFirstName'
+    names(scoring)[names(scoring) == 'lastName']  <- 'goalieLastName'
+    names(scoring) <- normalize_team_abbrev_cols(names(scoring))
     scoring[order(scoring$playerId), ]
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
@@ -306,10 +329,9 @@ goalie_scoring <- function() {
 }
 
 #' Access the scoring statistics for all the goalies by game
-#' 
-#' `goalie_game_scoring()` scrapes the scoring statistics for all the goalies 
-#' by game.
-#' 
+#'
+#' `goalie_game_scoring()` retrieves the scoring statistics for all the goalies by game as a `data.frame` with detail on game timeline state, period/clock progression, and matchup flow, date/season filtering windows and chronological context, and team identity, affiliation, and matchup-side context.
+#'
 #' @returns data.frame with one row per player per game
 #' @examples
 #' goalie_game_scoring <- goalie_game_scoring()
@@ -322,6 +344,9 @@ goalie_game_scoring <- function() {
       type = 'r'
     )$data
     scoring$id <- NULL
+    names(scoring)[names(scoring) == 'firstName'] <- 'goalieFirstName'
+    names(scoring)[names(scoring) == 'lastName']  <- 'goalieLastName'
+    names(scoring) <- normalize_team_abbrev_cols(names(scoring))
     scoring[order(scoring$playerId, scoring$gameId), ]
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
@@ -330,13 +355,13 @@ goalie_game_scoring <- function() {
 }
 
 #' Access the goalie statistics leaders for a season, game type, and category
-#' 
-#' `goalie_leaders()` scrapes the goalie statistics leaders for a given set of 
-#' `season`, `game_type`, and `category`.
-#' 
+#'
+#' `goalie_leaders()` retrieves the goalie statistics leaders for a season, game type, and category as a `data.frame` where each row represents player and includes detail on player identity, role, handedness, and biographical profile.
+#'
 #' @inheritParams roster_statistics
 #' @param category character of 'w'/'wins', 's'/shutouts', 
 #' 's%'/'sP'/'save %'/'save percentage', or 'gaa'/'goals against average'
+#'
 #' @returns data.frame with one row per player
 #' @examples
 #' GAA_leaders_regular_20242025 <- goalie_leaders(
@@ -366,10 +391,16 @@ goalie_leaders <- function(
         gaa                     = 'goalsAgainstAverage',
         `goals against average` = 'goalsAgainstAverage'
       )
-      nhl_api(
+      goalies <- nhl_api(
         path  = sprintf('v1/goalie-stats-leaders/%s/%s', season, game_type),
         type  = 'w'
       )[[category]]
+      names(goalies)[names(goalies) == 'id']       <- 'playerId'
+      names(goalies)[names(goalies) == 'position'] <- 'positionCode'
+      names(goalies) <- normalize_locale_names(names(goalies))
+      names(goalies) <- scope_person_name_cols(names(goalies), 'goalie')
+      names(goalies) <- normalize_team_abbrev_cols(names(goalies))
+      goalies
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -379,9 +410,9 @@ goalie_leaders <- function(
 }
 
 #' Access the goalies on milestone watch
-#' 
-#' `goalie_milestones()` scrapes the goalies on milestone watch.
-#' 
+#'
+#' `goalie_milestones()` retrieves the goalies on milestone watch as a `data.frame` where each row represents player and includes detail on date/season filtering windows and chronological context, player identity, role, handedness, and biographical profile, and ranking movement, points pace, and division/conference position signals.
+#'
 #' @returns data.frame with one row per player
 #' @examples
 #' goalie_milestones <- goalie_milestones()
@@ -389,10 +420,15 @@ goalie_leaders <- function(
 
 goalie_milestones <- function() {
   tryCatch({
-    nhl_api(
+    milestones    <- nhl_api(
       path = 'en/milestones/goalies',
       type = 's'
     )$data
+    milestones$id <- NULL
+    names(milestones)[names(milestones) == 'firstName'] <- 'goalieFirstName'
+    names(milestones)[names(milestones) == 'lastName']  <- 'goalieLastName'
+    names(milestones) <- normalize_team_abbrev_cols(names(milestones))
+    milestones
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
     data.frame()

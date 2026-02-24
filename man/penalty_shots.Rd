@@ -2,19 +2,19 @@
 % Please edit documentation in R/Event.R
 \name{penalty_shots}
 \alias{penalty_shots}
-\alias{ps}
+\alias{pss}
 \title{Access all the penalty shots}
 \usage{
 penalty_shots()
 
-ps()
+pss()
 }
 \value{
 data.frame with one row per penalty shot
 }
 \description{
-\code{penalty_shots()} scrapes all the penalty shots.
+\code{penalty_shots()} retrieves all the penalty shots as a \code{data.frame} where each row represents penalty shot and includes detail on game timeline state, period/clock progression, and matchup flow plus date/season filtering windows and chronological context.
 }
 \examples{
-all_ps <- penalty_shots()
+all_pss <- penalty_shots()
 }

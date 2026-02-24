@@ -1,7 +1,7 @@
 #' Access all the teams
-#' 
-#' `teams()` scrapes all the teams.
-#' 
+#'
+#' `teams()` retrieves all the teams as a `data.frame` where each row represents team and includes detail on team identity, affiliation, and matchup-side context.
+#'
 #' @returns data.frame with one row per team
 #' @examples
 #' all_teams <- teams()
@@ -13,7 +13,12 @@ teams <- function() {
       path = 'en/team',
       type = 's'
     )$data
-    teams[order(teams$id), ]
+    teams <- teams[order(teams$id), ]
+    names(teams)[names(teams) == 'id']         <- 'teamId'
+    names(teams)[names(teams) == 'fullName']   <- 'teamFullName'
+    names(teams)[names(teams) == 'triCode']    <- 'teamTriCode'
+    names(teams)[names(teams) == 'rawTricode'] <- 'teamTriCodeRaw'
+    teams
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
     data.frame()
@@ -21,14 +26,14 @@ teams <- function() {
 }
 
 #' Access the season(s) and game type(s) in which a team played
-#' 
-#' `team_seasons()` scrapes the season(s) and game type(s) in which a team 
-#' played in the NHL.
-#' 
+#'
+#' `team_seasons()` retrieves the season(s) and game type(s) in which a team played as a `data.frame` where each row represents season and includes detail on date/season filtering windows and chronological context.
+#'
 #' @param team integer ID (e.g., 21), character full name (e.g., 'Colorado 
 #' Avalanche'), OR three-letter code (e.g., 'COL'); see [teams()] for 
 #' reference; ID is preferable as there now exists duplicate three-letter codes 
 #' (i.e., 'UTA' for 'Utah Hockey Club' and 'Utah Mammoth')
+#'
 #' @returns data.frame with one row per season
 #' @examples
 #' COL_seasons <- team_seasons(team = 21)
@@ -37,10 +42,13 @@ teams <- function() {
 team_seasons <- function(team = 1) {
   tryCatch(
     expr = {
-      nhl_api(
+      seasons <- nhl_api(
         path = sprintf('v1/club-stats-season/%s', to_team_tri_code(team)),
         type = 'w'
       )
+      names(seasons)[names(seasons) == 'season'] <- 'seasonId'
+      names(seasons)[names(seasons) == 'gameTypes'] <- 'gameTypeIds'
+      seasons
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -50,10 +58,9 @@ team_seasons <- function(team = 1) {
 }
 
 #' Access the configurations for team reports
-#' 
-#' `team_report_configurations()` scrapes the configurations for 
-#' [team_season_report()] and [team_game_report()].
-#' 
+#'
+#' `team_report_configurations()` retrieves the configurations for team reports as a nested `list` that separates summary and detail blocks for situational splits across home/road, strength state, and overtime/shootout states plus configuration catalogs for valid report categories and filters.
+#'
 #' @returns list with various items
 #' @examples
 #' team_report_configs <- team_report_configurations()
@@ -80,13 +87,13 @@ team_report_configs <- function() {
 
 #' Access various reports for a season, game type, and category for all 
 #' the teams by season
-#' 
-#' `team_season_report()` scrapes various reports for a given set of `season`, 
-#' `game_type`, and `category` for all the teams by season.
-#' 
+#'
+#' `team_season_report()` retrieves various reports for a season, game type, and category for all the teams by season as a `data.frame` where each row represents team and includes detail on date/season filtering windows and chronological context, team identity, affiliation, and matchup-side context, and production, workload, efficiency, and result-level performance outcomes.
+#'
 #' @inheritParams roster_statistics
 #' @param category character (e.g., 'leadingtrailing'); see 
 #' [team_report_configurations()] for reference
+#'
 #' @returns data.frame with one row per team
 #' @examples
 #' situational_team_season_report_playoffs_20212022 <- team_season_report(
@@ -117,6 +124,7 @@ team_season_report <- function(
         ),
         type  = 's'
       )$data
+      names(report) <- normalize_team_abbrev_cols(names(report))
       report[order(report$teamId), ]
     },
     error = function(e) {
@@ -128,11 +136,11 @@ team_season_report <- function(
 
 #' Access various reports for a season, game type, and category for all 
 #' the teams by game
-#' 
-#' `team_game_report()` scrapes various reports for a given set of `season`, 
-#' `game_type`, and `category` for all the teams by game.
-#' 
+#'
+#' `team_game_report()` retrieves various reports for a season, game type, and category for all the teams by game as a `data.frame` where each row represents game per team and includes detail on game timeline state, period/clock progression, and matchup flow, team identity, affiliation, and matchup-side context, and production, workload, efficiency, and result-level performance outcomes.
+#'
 #' @inheritParams team_season_report
+#'
 #' @returns data.frame with one row per game per team
 #' @examples
 #' situational_team_game_report_playoffs_20212022 <- team_game_report(
@@ -163,6 +171,7 @@ team_game_report <- function(
         ),
         type  = 's'
       )$data
+      names(report) <- normalize_team_abbrev_cols(names(report))
       report[order(report$teamId, report$gameId), ]
     },
     error = function(e) {
@@ -173,10 +182,9 @@ team_game_report <- function(
 }
 
 #' Access the statistics for all the teams by season and game type
-#' 
-#' `team_season_statistics()` scrapes the statistics for all the teams by 
-#' season and game type.
-#' 
+#'
+#' `team_season_statistics()` retrieves the statistics for all the teams by season and game type as a `data.frame` where each row represents team per season per game type and includes detail on date/season filtering windows and chronological context, team identity, affiliation, and matchup-side context, and production, workload, efficiency, and result-level performance outcomes.
+#'
 #' @returns data.frame with one row per team per season per game type
 #' @examples
 #' # May take >5s, so skip.
@@ -189,11 +197,15 @@ team_season_statistics <- function() {
       path = 'team-stats',
       type = 'r'
     )$data
-    stats[order(
+    stats <- stats[order(
       stats$`id.db:TEAMID`, 
       stats$`id.db:SEASON`, 
       stats$`id.db:GAMETYPE`
     ), ]
+    names(stats)[names(stats) == 'id.db:TEAMID']   <- 'teamId'
+    names(stats)[names(stats) == 'id.db:SEASON']   <- 'seasonId'
+    names(stats)[names(stats) == 'id.db:GAMETYPE'] <- 'gameTypeId'
+    stats
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
     data.frame()
@@ -208,15 +220,15 @@ team_season_stats <- function() {
 }
 
 #' Access the roster for a team, season, and position
-#' 
-#' `roster()` scrapes the roster for a given set of `team`, `season`, and 
-#' `position`.
-#' 
+#'
+#' `roster()` retrieves the roster for a team, season, and position as a `data.frame` where each row represents player and includes detail on player identity, role, handedness, and biographical profile.
+#'
 #' @inheritParams team_seasons
 #' @param season integer in YYYYYYYY (e.g., 20242025); see [seasons()] for 
 #' reference
 #' @param position character of 'f'/'forwards', 'd'/'defensemen', or 
 #' 'g'/'goalies'
+#'
 #' @returns data.frame with one row per player
 #' @examples
 #' COL_defensemen_20242025 <- roster(
@@ -239,10 +251,14 @@ roster <- function(
         d = 'defensemen',
         g = 'goalies'
       )
-      nhl_api(
+      players <- nhl_api(
         path = sprintf('v1/roster/%s/%s', to_team_tri_code(team), season),
         type = 'w'
       )[[position]]
+      names(players)[names(players) == 'id'] <- 'playerId'
+      names(players) <- normalize_locale_names(names(players))
+      names(players) <- scope_person_name_cols(names(players), 'player')
+      players
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -252,16 +268,16 @@ roster <- function(
 }
 
 #' Access the roster statistics for a team, season, game type, and position
-#' 
-#' `roster_statistics()` scrapes the roster statistics for a given set of 
-#' `team`, `season`, `game_type`, and `position`.
-#' 
+#'
+#' `roster_statistics()` retrieves the roster statistics for a team, season, game type, and position as a `data.frame` where each row represents player and includes detail on player identity, role, handedness, and biographical profile plus production, workload, efficiency, and result-level performance outcomes.
+#'
 #' @inheritParams roster
 #' @param game_type integer in 1:3 (where 1 = pre-season, 2 = regular season, 3 
 #' = playoff/post-season) OR character of 'pre', 'regular', or 
 #' playoff'/'post'; see [seasons()] for reference; most functions will NOT 
 #' support pre-season
 #' @param position character of 's'/'skaters' or 'g'/'goalies'
+#'
 #' @returns data.frame with one row per player
 #' @examples
 #' COL_goalies_statistics_regular_20242025 <- roster_statistics(
@@ -285,7 +301,7 @@ roster_statistics <- function(
         s = 'skaters',
         g = 'goalies'
       )
-      nhl_api(
+      players <- nhl_api(
         path = sprintf(
           'v1/club-stats/%s/%s/%s', 
           to_team_tri_code(team), 
@@ -294,6 +310,9 @@ roster_statistics <- function(
         ),
         type = 'w'
       )[[position]]
+      names(players) <- normalize_locale_names(names(players))
+      names(players) <- scope_person_name_cols(names(players), 'player')
+      players
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -314,11 +333,11 @@ roster_stats <- function(
 }
 
 #' Access the prospects for a team and position
-#' 
-#' `team_prospects()` scrapes the prospects for a given set of `team` and 
-#' `position`.
-#' 
+#'
+#' `team_prospects()` retrieves the prospects for a team and position as a `data.frame` where each row represents player and includes detail on player identity, role, handedness, and biographical profile.
+#'
 #' @inheritParams roster
+#'
 #' @returns data.frame with one row per player
 #' @examples
 #' COL_forward_prospects <- team_prospects(
@@ -336,10 +355,14 @@ team_prospects <- function(team = 1, position = 'forwards') {
         d = 'defensemen',
         g = 'goalies'
       )
-      nhl_api(
+      players <- nhl_api(
         path = sprintf('v1/prospects/%s', to_team_tri_code(team)),
         type = 'w'
       )[[position]]
+      names(players)[names(players) == 'id'] <- 'playerId'
+      names(players) <- normalize_locale_names(names(players))
+      names(players) <- scope_person_name_cols(names(players), 'player')
+      players
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -349,11 +372,11 @@ team_prospects <- function(team = 1, position = 'forwards') {
 }
 
 #' Access the schedule for a team and season
-#' 
-#' `team_season_schedule()` scrapes the schedule for a given set of `team` 
-#' and `season`.
-#' 
+#'
+#' `team_season_schedule()` retrieves the schedule for a team and season as a `data.frame` where each row represents game and includes detail on game timeline state, period/clock progression, and matchup flow, date/season filtering windows and chronological context, and team identity, affiliation, and matchup-side context.
+#'
 #' @inheritParams roster
+#'
 #' @returns data.frame with one row per game
 #' @examples
 #' COL_schedule_20252026 <- team_season_schedule(
@@ -365,7 +388,7 @@ team_prospects <- function(team = 1, position = 'forwards') {
 team_season_schedule <- function(team = 1, season = 'now') {
   tryCatch(
     expr = {
-      nhl_api(
+      games <- nhl_api(
         path = sprintf(
           'v1/club-schedule-season/%s/%s', 
           to_team_tri_code(team), 
@@ -373,6 +396,12 @@ team_season_schedule <- function(team = 1, season = 'now') {
         ),
         type = 'w'
       )$games
+      names(games)[names(games) == 'id']       <- 'gameId'
+      names(games)[names(games) == 'season']   <- 'seasonId'
+      names(games)[names(games) == 'gameType'] <- 'gameTypeId'
+      names(games) <- normalize_locale_names(names(games))
+      names(games) <- normalize_team_abbrev_cols(names(games))
+      games
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -382,13 +411,13 @@ team_season_schedule <- function(team = 1, season = 'now') {
 }
 
 #' Access the schedule for a team and month
-#' 
-#' `team_month_schedule()` scrapes the schedule for a given set of `team` 
-#' and `month`.
-#' 
+#'
+#' `team_month_schedule()` retrieves the schedule for a team and month as a `data.frame` where each row represents game and includes detail on game timeline state, period/clock progression, and matchup flow, date/season filtering windows and chronological context, and team identity, affiliation, and matchup-side context.
+#'
 #' @inheritParams team_seasons
 #' @param month character in 'YYYY-MM' (e.g., '2025-01'); see [seasons()] 
 #' for reference
+#'
 #' @returns data.frame with one row per game
 #' @examples
 #' COL_schedule_December_2025 <- team_month_schedule(
@@ -400,7 +429,7 @@ team_season_schedule <- function(team = 1, season = 'now') {
 team_month_schedule <- function(team = 1, month = 'now') {
   tryCatch(
     expr = {
-      nhl_api(
+      games <- nhl_api(
         path = sprintf(
           'v1/club-schedule/%s/month/%s', 
           to_team_tri_code(team), 
@@ -408,6 +437,12 @@ team_month_schedule <- function(team = 1, month = 'now') {
         ),
         type = 'w'
       )$games
+      names(games)[names(games) == 'id']       <- 'gameId'
+      names(games)[names(games) == 'season']   <- 'seasonId'
+      names(games)[names(games) == 'gameType'] <- 'gameTypeId'
+      names(games) <- normalize_locale_names(names(games))
+      names(games) <- normalize_team_abbrev_cols(names(games))
+      games
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -417,12 +452,12 @@ team_month_schedule <- function(team = 1, month = 'now') {
 }
 
 #' Access the schedule for a team and week since a date
-#' 
-#' `team_week_schedule()` scrapes the schedule for a given set of `team` and 
-#' a week since `date`.
-#' 
+#'
+#' `team_week_schedule()` retrieves the schedule for a team and week since a date as a `data.frame` where each row represents game and includes detail on game timeline state, period/clock progression, and matchup flow, date/season filtering windows and chronological context, and team identity, affiliation, and matchup-side context.
+#'
 #' @inheritParams team_seasons
 #' @inheritParams standings
+#'
 #' @returns data.frame with one row per game
 #' @examples
 #' COL_schedule_Family_Week_2025 <- team_week_schedule(
@@ -434,7 +469,7 @@ team_month_schedule <- function(team = 1, month = 'now') {
 team_week_schedule <- function(team = 1, date = 'now') {
   tryCatch(
     expr = {
-      nhl_api(
+      games <- nhl_api(
         path = sprintf(
           'v1/club-schedule/%s/week/%s', 
           to_team_tri_code(team), 
@@ -442,6 +477,12 @@ team_week_schedule <- function(team = 1, date = 'now') {
         ),
         type = 'w'
       )$games
+      names(games)[names(games) == 'id']       <- 'gameId'
+      names(games)[names(games) == 'season']   <- 'seasonId'
+      names(games)[names(games) == 'gameType'] <- 'gameTypeId'
+      names(games) <- normalize_locale_names(names(games))
+      names(games) <- normalize_team_abbrev_cols(names(games))
+      games
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
@@ -451,9 +492,9 @@ team_week_schedule <- function(team = 1, date = 'now') {
 }
 
 #' Access all the team logos
-#' 
-#' `team_logos()` scrapes all the team logos.
-#' 
+#'
+#' `team_logos()` retrieves all the team logos as a `data.frame` where each row represents logo and includes detail on team identity, affiliation, and matchup-side context.
+#'
 #' @returns data.frame with one row per logo
 #' @examples
 #' all_team_logos <- team_logos()
@@ -466,7 +507,10 @@ team_logos <- function() {
       type = 'r'
     )$data
     logos$id <- NULL
-    logos[order(logos$teamId, logos$startSeason), ]
+    logos    <- logos[order(logos$teamId, logos$startSeason), ]
+    names(logos)[names(logos) == 'startSeason'] <- 'startSeasonId'
+    names(logos)[names(logos) == 'endSeason']   <- 'endSeasonId'
+    logos
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
     data.frame()

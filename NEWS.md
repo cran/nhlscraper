@@ -1,5 +1,14 @@
+# nhlscraper 0.5.0
+- All return IDs, codes, and names are now standardized (i.e., no more arbitrary `id` columns and inconsistent column names across functions).
+- `contracts()` is now added to get all NHL contracts since the 2011-2012 season.
+- `ig_game_shot_locations()` and `x_game_shot_locations()` now use continuous xG scale instead of bins.
+- `calculate_expected_goals()` now combines the previous xG calculation functions; as a result, `calculate_expected_goals_v1()`, `calculate_expected_goals_v2()`, and `calculate_expected_goals_v3()` are now defunct.
+- `calculate_speed()` is now added to calculate event-to-event deltas in play-by-plays.
+- `add_shooter_biometrics()` is now added to add shooter biometrics to Fenewick events in play-by-plays.
+- `add_goalie_biometrics()` is now added to add goalie biometrics to Fenewick events in play-by-plays.
+- `ps()` is now deprecated; use `pss()` instead.
+
 # nhlscraper 0.4.2
-- `shift()` is now deprecated; use `shift_chart()` instead.
 - `shift_charts()` is now added to access season-aggregate shift charts.
 - `add_on_ice_players()` is now added to merge play-by-plays with shift charts.
 - Previous cleaning functions are now internalized and implemented by default to:
@@ -9,12 +18,12 @@
   - `wsc_play_by_plays()`
   - `shift_chart()`
   - `shift_charts()`
+- `shifts()` is now deprecated; use `shift_chart()` instead.
 
 # nhlscraper 0.4.1
 - All API call functions are now wrapped with try-catch.
 
 # nhlscraper 0.4.0
-
 - Website now features proper example.
 - New functions to help clean the data are now available:
   - `strip_game_id()`
@@ -40,7 +49,6 @@
   - `x_game_cumulative_expected_goals()`
 
 # nhlscraper 0.3.0
-
 - Website now features disclosure and history.
 - Documentation is now standardized.
 - All API calls now handle rate-limits with exponential backoff.
@@ -269,7 +277,6 @@
   - `get_espn_futures()`
 
 # nhlscraper 0.2.0
-
 - Website now features dark theme and example.
 - New functions to access data about the franchises are now available:
   - `get_franchise_season_by_season()`
@@ -308,11 +315,9 @@
   - `get_espn_futures()`
 
 # nhlscraper 0.1.1
-
 - Some functions are now more optimized.
 
 # nhlscraper 0.1.0
-
 - `News.md` now tracks changelog.
 - New functions to access data about the entire league are now available:
   - `get_seasons()`

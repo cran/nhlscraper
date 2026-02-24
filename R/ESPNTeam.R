@@ -1,7 +1,7 @@
 #' Access all the ESPN teams
-#' 
-#' `espn_teams()` scrapes all the ESPN teams.
-#' 
+#'
+#' `espn_teams()` retrieves all the ESPN teams as a `data.frame` where each row represents ESPN team and includes detail on team composition, matchup context, and season progression detail.
+#'
 #' @returns data.frame with one row per ESPN team
 #' @examples
 #' all_ESPN_teams <- espn_teams()
@@ -24,7 +24,7 @@ espn_teams <- function() {
     }
     out <- do.call(rbind, all_teams)
     id  <- sub('.*teams/([0-9]+)\\?lang.*', '\\1', out[[1]])
-    data.frame(id = id, stringsAsFactors = FALSE)
+    data.frame(espnTeamId = id, stringsAsFactors = FALSE)
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
     data.frame()
@@ -32,17 +32,18 @@ espn_teams <- function() {
 }
 
 #' Access the ESPN summary for a team
-#' 
-#' `espn_team_summary()` scrapes the ESPN summary for a `team`.
-#' 
+#'
+#' `espn_team_summary()` retrieves the ESPN summary for a team as a `data.frame` where each row represents one result and includes detail on game timing, matchup state, scoring flow, and situational event detail.
+#'
 #' @param team integer ID (e.g., 1); see [espn_teams()] for 
 #' reference
+#'
 #' @returns data.frame with one row
 #' @examples
 #' ESPN_summary_Boston_Bruins <- espn_team_summary(team = 1)
 #' @export
 
-espn_team_summary <- function(team = 3988803) {
+espn_team_summary <- function(team = 1) {
   get_or_na <- function(x, ...) {
     tryCatch({
       for (nm in list(...)) {
@@ -52,25 +53,28 @@ espn_team_summary <- function(team = 3988803) {
       if (is.null(x)) NA else x
     }, error = function(e) NA)
   }
-  team <- tryCatch(
-    espn_api(
-      path = sprintf('teams/%s', team),
-      type = 'c'
-    ),
+  tryCatch(
+    expr = {
+      team <- as.integer(team[[1]])
+      if (is.na(team)) {
+        stop('Invalid team.')
+      }
+      team <- espn_api(
+        path = sprintf('teams/%s', team),
+        type = 'c'
+      )
+      data.frame(
+        location      = get_or_na(team, 'location'),
+        teamName      = get_or_na(team, 'name'),
+        teamFullName  = get_or_na(team, 'displayName'),
+        teamTriCode   = get_or_na(team, 'abbreviation'),
+        isActive      = get_or_na(team, 'isActive'),
+        stringsAsFactors = FALSE
+      )
+    },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')
-      NULL
+      data.frame()
     }
-  )
-  if (is.null(team)) {
-    return(data.frame())
-  }
-  data.frame(
-    location = get_or_na(team, 'location'),
-    name     = get_or_na(team, 'name'),
-    fullName = get_or_na(team, 'displayName'),
-    triCode  = get_or_na(team, 'abbreviation'),
-    isActive = get_or_na(team, 'isActive'),
-    stringsAsFactors = FALSE
   )
 }
