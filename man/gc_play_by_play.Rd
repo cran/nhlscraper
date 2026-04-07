@@ -16,8 +16,19 @@ gc_pbp(game = 2023030417)
 data.frame with one row per event (play)
 }
 \description{
-\code{gc_play_by_play()} retrieves the GameCenter (GC) play-by-play for a game as a \code{data.frame} where each row represents event and includes detail on game timeline state, period/clock progression, and matchup flow, date/season filtering windows and chronological context, and player identity, role, handedness, and biographical profile.
+\code{gc_play_by_play()} retrieves the GameCenter (GC) play-by-play for a game as
+a \code{data.frame} where each row represents an event. The returned schema is the
+cleaned, public-facing play-by-play schema, including canonical names such as
+\code{periodNumber}, \code{eventTypeCode}, \code{eventTypeDescKey}, \code{homeShots},
+\code{shotsFor}, \code{penaltyTypeDescKey}, \code{penaltyDuration}, \code{servedByPlayerId},
+\code{goalieInNetId}, and HTML-report-derived on-ice player ID columns such as
+\code{homeGoaliePlayerId}, \code{awayGoaliePlayerId}, \code{homeSkater1PlayerId}, and any
+additional overflow skater slots required by the game. HTML report skater and
+goalie IDs are returned whenever they can be matched back to a supported row,
+even when the raw \code{situationCode} is stale. Use \code{\link[=add_shift_times]{add_shift_times()}} with
+\code{\link[=shift_chart]{shift_chart()}} (or \code{\link[=shift_charts]{shift_charts()}}) to add on-ice shift timing columns.
 }
 \examples{
-gc_pbp_Martin_Necas_legacy_game <- gc_play_by_play(game = 2025020275)
+# May take >5s, so skip.
+\donttest{gc_pbp_Martin_Necas_legacy_game <- gc_play_by_play(game = 2025020275)}
 }

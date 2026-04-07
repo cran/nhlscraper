@@ -1,136 +1,3 @@
-#' Access the GameCenter (GC) play-by-plays for a season
-#' 
-#' `gc_play_by_plays()` loads the GC play-by-plays for a given `season`.
-#' 
-#' @inheritParams roster
-#' @returns data.frame with one row per event (play) per game
-#' @examples
-#' # May take >5s, so skip.
-#' \donttest{gc_pbps_20212022 <- gc_play_by_plays(season = 20212022)}
-#' @export
-
-gc_play_by_plays <- function(season = 20242025) {
-  tryCatch(
-    expr = {
-      u <- paste0(
-        'https://huggingface.co/datasets/RentoSaijo/NHL_DB/resolve/main/',
-        'data/game/pbps/gc/NHL_PBPS_GC_',
-        season,
-        '.csv.gz'
-      )
-      tmp <- tempfile(fileext = '.csv.gz')
-      utils::download.file(u, tmp, mode = 'wb', quiet = TRUE)
-      con <- gzfile(tmp, open = 'rt')
-      on.exit(close(con), add = TRUE)
-      pbps <- utils::read.csv(con)
-      raw_situation <- pbps[['situationCode']]
-      situation_chr <- as.character(raw_situation)
-      situation_pad <- rep(NA_character_, length(situation_chr))
-      valid         <- !is.na(situation_chr) & nchar(situation_chr) > 0
-      if (any(valid)) {
-        situation_pad[valid] <- sprintf('%04d', as.integer(situation_chr[valid]))
-      }
-      pbps[['situationCode']] <- situation_pad
-      pbps
-    },
-    error = function(e) {
-      message('Invalid argument(s); refer to help file.')
-      data.frame()
-    }
-  )
-}
-
-#' @rdname gc_play_by_plays
-#' @export
-
-gc_pbps <- function(season = 20242025) {
-  gc_play_by_plays(season)
-}
-
-#' Access the World Showcase (WSC) play-by-plays for a season
-#' 
-#' `wsc_play_by_plays()` loads the WSC play-by-plays for a given `season`.
-#' 
-#' @inheritParams roster
-#' @returns data.frame with one row per event (play) per game
-#' @examples
-#' # May take >5s, so skip.
-#' \donttest{wsc_pbps_20212022 <- wsc_play_by_plays(season = 20212022)}
-#' @export
-
-wsc_play_by_plays <- function(season = 20242025) {
-  tryCatch(
-    expr = {
-      u <- paste0(
-        'https://huggingface.co/datasets/RentoSaijo/NHL_DB/resolve/main/',
-        'data/game/pbps/wsc/NHL_PBPS_WSC_',
-        season,
-        '.csv.gz'
-      )
-      tmp <- tempfile(fileext = '.csv.gz')
-      utils::download.file(u, tmp, mode = 'wb', quiet = TRUE)
-      con <- gzfile(tmp, open = 'rt')
-      on.exit(close(con), add = TRUE)
-      pbps <- utils::read.csv(con)
-      raw_situation <- pbps[['situationCode']]
-      situation_chr <- as.character(raw_situation)
-      situation_pad <- rep(NA_character_, length(situation_chr))
-      valid         <- !is.na(situation_chr) & nchar(situation_chr) > 0
-      if (any(valid)) {
-        situation_pad[valid] <- sprintf('%04d', as.integer(situation_chr[valid]))
-      }
-      pbps[['situationCode']] <- situation_pad
-      pbps
-    },
-    error = function(e) {
-      message('Invalid argument(s); refer to help file.')
-      data.frame()
-    }
-  )
-}
-
-#' @rdname wsc_play_by_plays
-#' @export
-
-wsc_pbps <- function(season = 20242025) {
-  wsc_play_by_plays(season)
-}
-
-#' Access the shift charts for a season
-#' 
-#' `shift_charts()` loads the shift charts for a given `season`.
-#' 
-#' @inheritParams roster
-#' @returns data.frame with one row per event (play) per game
-#' @examples
-#' # May take >5s, so skip.
-#' \donttest{shift_charts_20212022 <- shift_charts(season = 20212022)}
-#' @export
-
-shift_charts <- function(season = 20242025) {
-  tryCatch(
-    expr = {
-      u <- paste0(
-        'https://huggingface.co/datasets/RentoSaijo/NHL_DB/resolve/main/',
-        'data/game/scs/NHL_SCS_',
-        season,
-        '.csv.gz'
-      )
-      tmp <- tempfile(fileext = '.csv.gz')
-      utils::download.file(u, tmp, mode = 'wb', quiet = TRUE)
-      con <- gzfile(tmp, open = 'rt')
-      on.exit(close(con), add = TRUE)
-      shifts    <- utils::read.csv(con)
-      shifts$id <- NULL
-      shifts
-    },
-    error = function(e) {
-      message('Invalid argument(s); refer to help file.')
-      data.frame()
-    }
-  )
-}
-
 #' Access all contracts from packaged internal data
 #'
 #' `contracts()` loads preprocessed contract records bundled with the package and returns a cleaned `data.frame` with package-consistent column names, season IDs, numeric money fields, and team/player identifiers.
@@ -182,8 +49,6 @@ contracts <- function() {
           aav = numeric(),
           value = numeric(),
           bonus = numeric(),
-          twoYearCash = numeric(),
-          threeYearCash = numeric(),
           stringsAsFactors = FALSE
         )
         attr(out, 'droppedDuplicateRows') <- dropped_duplicate_rows
@@ -227,6 +92,7 @@ contracts <- function() {
         c_age <- out$ageAtSigning
         matched_player_id <- rep(NA_integer_, nrow(out))
         matched_player_full_name <- rep(NA_character_, nrow(out))
+        matched_position_code <- rep(NA_character_, nrow(out))
         for (i in seq_len(nrow(out))) {
           idx <- key_map[[c_key[[i]]]]
           if (is.null(idx) || !length(idx)) next
@@ -264,6 +130,9 @@ contracts <- function() {
           if (length(idx) == 1L) {
             matched_player_id[[i]] <- suppressWarnings(as.integer(p$playerId[idx]))
             matched_player_full_name[[i]] <- as.character(p$playerFullName[idx])
+            if ('positionCode' %in% names(p)) {
+              matched_position_code[[i]] <- as.character(p$positionCode[idx])
+            }
           }
         }
         out$playerId <- matched_player_id
@@ -271,6 +140,11 @@ contracts <- function() {
           is.na(matched_player_full_name) | matched_player_full_name == '',
           out$playerFullName,
           matched_player_full_name
+        )
+        out$positionCode <- ifelse(
+          is.na(matched_position_code) | matched_position_code == '',
+          out$positionCode,
+          matched_position_code
         )
         unresolved <- is.na(out$playerId)
         dropped_unresolved <- sum(unresolved)
@@ -299,9 +173,7 @@ contracts <- function() {
         'contractYears',
         'contractAAV',
         'contractValue',
-        'signingBonus',
-        'twoYearCash',
-        'threeYearCash'
+        'signingBonus'
       )]
       names(out)[names(out) == 'signedWithTriCode'] <- 'signedWithTeamTriCode'
       names(out)[names(out) == 'contractYears'] <- 'term'
@@ -314,6 +186,245 @@ contracts <- function() {
       attr(out, 'droppedInvalidSeasonRows') <- dropped_invalid_season
       attr(out, 'droppedUnresolvedPlayers') <- dropped_unresolved
       out
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' Access the raw GameCenter (GC) play-by-plays for a season
+#' 
+#' `gc_play_by_plays_raw()` loads the raw GC play-by-plays for a given
+#' `season`.
+#' 
+#' @inheritParams roster
+#' @returns data.frame with one row per raw event (play) per game
+#' @examples
+#' # May take >5s, so skip.
+#' \donttest{gc_pbps_raw_20212022 <- gc_play_by_plays_raw(season = 20212022)}
+#' @export
+
+gc_play_by_plays_raw <- function(season = 20242025) {
+  tryCatch(
+    expr = {
+      u <- paste0(
+        'https://huggingface.co/datasets/RentoSaijo/NHL_DB/resolve/main/',
+        'data/game/pbps/gc/NHL_PBPS_GC_Raw_',
+        season,
+        '.parquet'
+      )
+      tmp <- tempfile(fileext = '.parquet')
+      utils::download.file(u, tmp, mode = 'wb', quiet = TRUE)
+      as.data.frame(arrow::read_parquet(tmp), stringsAsFactors = FALSE)
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' @rdname gc_play_by_plays_raw
+#' @export
+
+gc_pbps_raw <- function(season = 20242025) {
+  gc_play_by_plays_raw(season)
+}
+
+#' Access the GameCenter (GC) play-by-plays for a season
+#' 
+#' `gc_play_by_plays()` loads the GC play-by-plays for a given `season`.
+#' 
+#' @inheritParams roster
+#' @returns data.frame with one row per event (play) per game
+#' @examples
+#' # May take >5s, so skip.
+#' \donttest{gc_pbps_20212022 <- gc_play_by_plays(season = 20212022)}
+#' @export
+
+gc_play_by_plays <- function(season = 20242025) {
+  tryCatch(
+    expr = {
+      u <- paste0(
+        'https://huggingface.co/datasets/RentoSaijo/NHL_DB/resolve/main/',
+        'data/game/pbps/gc/NHL_PBPS_GC_',
+        season,
+        '.parquet'
+      )
+      tmp <- tempfile(fileext = '.parquet')
+      utils::download.file(u, tmp, mode = 'wb', quiet = TRUE)
+      pbps <- as.data.frame(arrow::read_parquet(tmp), stringsAsFactors = FALSE)
+      raw_situation <- pbps[['situationCode']]
+      situation_chr <- as.character(raw_situation)
+      situation_pad <- rep(NA_character_, length(situation_chr))
+      valid         <- !is.na(situation_chr) & nchar(situation_chr) > 0
+      if (any(valid)) {
+        situation_pad[valid] <- sprintf('%04d', as.integer(situation_chr[valid]))
+      }
+      pbps[['situationCode']] <- situation_pad
+      pbps
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' @rdname gc_play_by_plays
+#' @export
+
+gc_pbps <- function(season = 20242025) {
+  gc_play_by_plays(season)
+}
+
+#' Access the raw World Showcase (WSC) play-by-plays for a season
+#' 
+#' `wsc_play_by_plays_raw()` loads the raw WSC play-by-plays for a given
+#' `season`.
+#' 
+#' @inheritParams roster
+#' @returns data.frame with one row per raw event (play) per game
+#' @examples
+#' # May take >5s, so skip.
+#' \donttest{wsc_pbps_raw_20212022 <- wsc_play_by_plays_raw(season = 20212022)}
+#' @export
+
+wsc_play_by_plays_raw <- function(season = 20242025) {
+  tryCatch(
+    expr = {
+      u <- paste0(
+        'https://huggingface.co/datasets/RentoSaijo/NHL_DB/resolve/main/',
+        'data/game/pbps/wsc/NHL_PBPS_WSC_Raw_',
+        season,
+        '.parquet'
+      )
+      tmp <- tempfile(fileext = '.parquet')
+      utils::download.file(u, tmp, mode = 'wb', quiet = TRUE)
+      as.data.frame(arrow::read_parquet(tmp), stringsAsFactors = FALSE)
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' @rdname wsc_play_by_plays_raw
+#' @export
+
+wsc_pbps_raw <- function(season = 20242025) {
+  wsc_play_by_plays_raw(season)
+}
+
+#' Access the World Showcase (WSC) play-by-plays for a season
+#' 
+#' `wsc_play_by_plays()` loads the WSC play-by-plays for a given `season`.
+#' 
+#' @inheritParams roster
+#' @returns data.frame with one row per event (play) per game
+#' @examples
+#' # May take >5s, so skip.
+#' \donttest{wsc_pbps_20212022 <- wsc_play_by_plays(season = 20212022)}
+#' @export
+
+wsc_play_by_plays <- function(season = 20242025) {
+  tryCatch(
+    expr = {
+      u <- paste0(
+        'https://huggingface.co/datasets/RentoSaijo/NHL_DB/resolve/main/',
+        'data/game/pbps/wsc/NHL_PBPS_WSC_',
+        season,
+        '.parquet'
+      )
+      tmp <- tempfile(fileext = '.parquet')
+      utils::download.file(u, tmp, mode = 'wb', quiet = TRUE)
+      pbps <- as.data.frame(arrow::read_parquet(tmp), stringsAsFactors = FALSE)
+      raw_situation <- pbps[['situationCode']]
+      situation_chr <- as.character(raw_situation)
+      situation_pad <- rep(NA_character_, length(situation_chr))
+      valid         <- !is.na(situation_chr) & nchar(situation_chr) > 0
+      if (any(valid)) {
+        situation_pad[valid] <- sprintf('%04d', as.integer(situation_chr[valid]))
+      }
+      pbps[['situationCode']] <- situation_pad
+      pbps
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' @rdname wsc_play_by_plays
+#' @export
+
+wsc_pbps <- function(season = 20242025) {
+  wsc_play_by_plays(season)
+}
+
+#' Access the shift charts for a season
+#' 
+#' `shift_charts()` loads the shift charts for a given `season`.
+#' 
+#' @inheritParams roster
+#' @returns data.frame with one row per event (play) per game
+#' @examples
+#' # May take >5s, so skip.
+#' \donttest{shift_charts_20212022 <- shift_charts(season = 20212022)}
+#' @export
+
+shift_charts <- function(season = 20242025) {
+  tryCatch(
+    expr = {
+      u <- paste0(
+        'https://huggingface.co/datasets/RentoSaijo/NHL_DB/resolve/main/',
+        'data/game/scs/NHL_SCS_',
+        season,
+        '.parquet'
+      )
+      tmp <- tempfile(fileext = '.parquet')
+      utils::download.file(u, tmp, mode = 'wb', quiet = TRUE)
+      shifts <- as.data.frame(arrow::read_parquet(tmp), stringsAsFactors = FALSE)
+      shifts$id <- NULL
+      shifts
+    },
+    error = function(e) {
+      message('Invalid argument(s); refer to help file.')
+      data.frame()
+    }
+  )
+}
+
+#' Access the replays for a season
+#' 
+#' `replays()` loads the replays for a given `season`.
+#' 
+#' @inheritParams roster
+#' @returns data.frame with one row per decisecond
+#' @examples
+#' # May take >5s, so skip.
+#' \donttest{replays_20252026 <- replays(season = 20252026)}
+#' @export
+
+replays <- function(season = 20242025) {
+  old_timeout <- getOption('timeout')
+  on.exit(options(timeout = old_timeout), add = TRUE)
+  options(timeout = 600)
+  tryCatch(
+    expr = {
+      u <- paste0(
+        'https://huggingface.co/datasets/RentoSaijo/NHL_DB/resolve/main/',
+        'data/event/replays/NHL_REPLAYS_', 
+        season, 
+        '.parquet'
+      )
+      tmp <- tempfile(fileext = '.parquet')
+      utils::download.file(u, tmp, mode = 'wb', quiet = TRUE, method = 'libcurl')
+      as.data.frame(arrow::read_parquet(tmp), stringsAsFactors = FALSE)
     },
     error = function(e) {
       message('Invalid argument(s); refer to help file.')

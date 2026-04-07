@@ -1,3 +1,21 @@
+# nhlscraper 0.6.0
+- Documentation website now features more guided examples and explanation articles.
+- `replays()` is now added to retrieve season-aggregate replays.
+- `contracts()` now returns more contracts, dating back to the 90's (and then some).
+- `shift_chart()` (and consequentially, `shift_charts()`) now returns completed shift charts for all games where at least either one of API or HTML report is available.
+- `gc_play_by_play()` and `wsc_play_by_play()` now return new schema.
+  - HTML-report-derived on-ice goalie/skater ID columns are now added, limited to `faceoff`, `hit`, `shot-on-goal`, `giveaway`, `missed-shot`, `blocked-shot`, `goal`, `delayed-penalty`, `takeaway`, and `failed-shot-attempt`, while `situationCode`-derived strength/count columns remain available wherever `situationCode` itself is available. Check out our "Article" section on the documentation website to learn more.
+  - Helpers now consistently expect the current public schema instead of silently backfilling the package's older alias names.
+  - `add_shift_times()` is now added to populate scalar on-ice shift time elapsed columns via C.
+  - `add_deltas()` now handles event-to-event deltas in C, returns raw and normalized X/Y deltas alongside distance and angle deltas, and properly handles same-second events and shootouts/penalty shots with `1/n` estimation.
+  - `calculate_speed()` is now defunct; use `add_deltas()` instead.
+- `gc_play_by_play_raw()` and `wsc_play_by_play_raw()` now returns raw play-by-play data; note that there are heavy inconsistencies in this uncleaned data as [audited](https://github.com/RentoSaijo/nhlscraper/tree/main/other/audits/pbps).
+- `calculate_expected_goals()` now uses a fixed six-partition ridge xG model.
+  - The scorer now mirrors the training-time preprocessing with delta, biometric, previous-event, and shift-timing context where available, while keeping runtime dependencies minimal.
+  - The scorer now expects the current public play-by-play schema directly and no longer backfills legacy xG alias columns such as `typeDescKey`, `period`, `SOGFor`, `SOGAgainst`, and `SOGDifferential`.
+  - `ig_game_shot_locations()`, `x_game_shot_locations()`, `ig_game_cumulative_expected_goals()`, and `x_game_cumulative_expected_goals()` still accept `model` for backward compatibility, but it is now ignored.
+  - Check out our "Article" section on the documentation website to learn more. 
+
 # nhlscraper 0.5.0
 - All return IDs, codes, and names are now standardized (i.e., no more arbitrary `id` columns and inconsistent column names across functions).
 - `contracts()` is now added to get all NHL contracts since the 2011-2012 season.
@@ -24,7 +42,7 @@
 - All API call functions are now wrapped with try-catch.
 
 # nhlscraper 0.4.0
-- Website now features proper example.
+- Documentation website now features proper example.
 - New functions to help clean the data are now available:
   - `strip_game_id()`
   - `strip_time_period()`
@@ -49,7 +67,7 @@
   - `x_game_cumulative_expected_goals()`
 
 # nhlscraper 0.3.0
-- Website now features disclosure and history.
+- Documentation website now features disclosure and history.
 - Documentation is now standardized.
 - All API calls now handle rate-limits with exponential backoff.
 - Parameters are now standardized and can handle robust arguments.
@@ -277,7 +295,7 @@
   - `get_espn_futures()`
 
 # nhlscraper 0.2.0
-- Website now features dark theme and example.
+- Documentation website now features dark theme and example.
 - New functions to access data about the franchises are now available:
   - `get_franchise_season_by_season()`
   - `get_franchise_team_totals()`

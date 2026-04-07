@@ -127,7 +127,13 @@ replay <- function(game = 2023030417, event = 866) {
       out
     },
     error = function(e) {
-      message('Invalid argument(s); refer to help file.')
+      message(paste(
+        'Invalid argument(s); refer to help file.',
+        '\nProvided game:',
+        game,
+        '\nProvided event:',
+        event
+      ))
       data.frame()
     }
   )
