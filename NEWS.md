@@ -1,3 +1,9 @@
+# nhlscraper 0.6.1
+- `shift_chart()` now returns `periodNumber` instead of `period`.
+- `shift_chart_summary()` now returns per-strength TOI splits per player per period.
+- `shift_chart_summaries()` now returns season-aggregate version of above.
+- `gc_play_by_play()` and `wsc_play_by_play()` (and subsequently `gc_play_by_plays()` and `wsc_play_by_plays()`) now follows new logic documented in the "Article" section on the documentation website.
+
 # nhlscraper 0.6.0
 - Documentation website now features more guided examples and explanation articles.
 - `replays()` is now added to retrieve season-aggregate replays.

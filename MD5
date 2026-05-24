@@ -1,9 +1,9 @@
-2e2f8190065d4f0f3f759260f82491f0 *DESCRIPTION
-d1ac2bd98de51fd49033763be8de0d4a *NAMESPACE
-3c008bf29a8df5979b05f65e16dbc010 *NEWS.md
+1d669f776808e2ca7338cfc2b3ee9cbd *DESCRIPTION
+0abbdc61f4dceaad84d49d3718e313eb *NAMESPACE
+8db34758ab17e4ee68d818e9aed65463 *NEWS.md
 317b34866826b8967a354a91c01a0be1 *R/Award.R
 c625dd5af248cea93f117b2207c1111a *R/AwardOld.R
-21b3b634d58d31c28ba7e72105c402bb *R/Clean.R
+a9f8b73d349dd9ded31af0153817e3a9 *R/Clean.R
 f7aa46cf95699a099d6b768f99573f7a *R/Coach.R
 a2e99ebe8eaac800efb600b1b20189b7 *R/Draft.R
 45e988e887013f40f2dcae9cb89e5918 *R/DraftOld.R
@@ -20,7 +20,7 @@ d4b6fa1b8e451ad08a5af4c7f1009ff3 *R/ESPNPlayerOld.R
 c390c551097f84bed7384551f6c3b0eb *R/EventOld.R
 d6865b17706b84977669d2d6623ba486 *R/Franchise.R
 cfbf33a42d7f82f8a8497a31ca35c39b *R/FranchiseOld.R
-e261475b0b37f85a60b8ba210c6a3a90 *R/Game.R
+e376cfc65c04c60de2f4100723fcebc3 *R/Game.R
 3392622085ef7d9cc544eae62942e360 *R/GameOld.R
 85a1c3d585755303ddd443c69cd383fd *R/Goalie.R
 d93b5c70e90e06c07ec20e6eccdc6de9 *R/GoalieEDGE.R
@@ -28,7 +28,7 @@ f95ae42f979ca2042cab18fa4a2e94b5 *R/GoalieOld.R
 dded28521515733e9d0afce34a5dc348 *R/Graph.R
 b67050429bd2469616546a134b346f1c *R/League.R
 9ec732fecf1fdcb784d37c0d8096e2da *R/LeagueOld.R
-ea673ba2ce8f00b81405a59b2b07c9a1 *R/Load.R
+bad814372a98d7304245db78678e4c47 *R/Load.R
 4473699edd3b0b93f1fd4082bd49c7eb *R/Manager.R
 87f32c3aee1feb3aca122165ff05fc26 *R/Model.R
 65f4e78c9a0777fe340bb47458037231 *R/Official.R
@@ -40,7 +40,7 @@ c4d3840ff764984fea343f7cb5935d88 *R/PlayerOld.R
 6a67925a396fb791c6b07d66cf662df9 *R/Playoff.R
 d31d2f4c94e9cea8cdd988922f324795 *R/PlayoffOld.R
 c32f17b7f537ab7a3b896bb1da0502ea *R/Share.R
-ecf91afa2f9e8dce6552b0d403fc1e47 *R/Skater.R
+822262be9c5bfc1bc67d5ada41785d88 *R/Skater.R
 401ade44ea28d037905ad785c96ec4f6 *R/SkaterEDGE.R
 da34a6559d544d44ba586eb00b9d2a5b *R/SkaterOld.R
 a77dd0d7856c6c21a361c96a0ddd6638 *R/Team.R
@@ -50,11 +50,11 @@ f40ea0722789d281689d2b7a19a8f0ed *R/TeamOld.R
 c7541cc70fe2cfa0316f76abbf63c4c3 *R/nhlscraper-package.R
 9229f3932dc793b608b11419d5cbc902 *R/sysdata.rda
 f9c4035b93d555cea37db545fb0ef25c *R/xg_ridge_specs.R
-938528ed20a716f94cce84211b8d365a *README.md
+0540c14ec579ac4c5ba28d27d20f8af1 *README.md
 cf203f4a0b38e4ab5d3dfd51c2402a38 *build/vignette.rds
 79e37115e6d865d80dc4d25bd065b93b *inst/doc/back-to-back-tax.R
 8e39a3eaa670a340e4db2807e1c5342f *inst/doc/back-to-back-tax.Rmd
-d591e6d2ae2824cfa6948a4426010c41 *inst/doc/back-to-back-tax.html
+a8d30c706fc509b0030e59c33f784e77 *inst/doc/back-to-back-tax.html
 636fe9b2916c11f7e235f663927708ff *inst/doc/draft-size-bias.R
 a8d05c568e987da2a117b9ecc8af41fc *inst/doc/draft-size-bias.Rmd
 43a30311203ab4f623e0d42a8bbe87c3 *inst/doc/draft-size-bias.html
@@ -65,11 +65,11 @@ f52b582bcd691d02fc1211028716196f *inst/doc/expected-goals-model.html
 da2628eeb43e5d3e11e3e65bac64b8f3 *inst/doc/game-7-shot-quality.Rmd
 34b9ec4adceeaa12647675d0edb9207f *inst/doc/game-7-shot-quality.html
 75826a8d58b558cc0c8a6afbc1c79a2f *inst/doc/play-by-play-pipeline.R
-abda29aaa6b6f719bfa4e3ab5424771b *inst/doc/play-by-play-pipeline.Rmd
-81dd5fe728fef00596e4dc46a6dda37f *inst/doc/play-by-play-pipeline.html
+266ae9ae135cfebb515a50adf9847b40 *inst/doc/play-by-play-pipeline.Rmd
+3c5638ffdd8d22a3c0eabe5c48834953 *inst/doc/play-by-play-pipeline.html
 e8c3a497d5f4671d101173d676bff21a *inst/doc/playoff-size.R
 9e6c7ed5e57ea00a55eca02511f40620 *inst/doc/playoff-size.Rmd
-50a63db7d441a21376141f16779964c5 *inst/doc/playoff-size.html
+ea8c2af1e5eb53613712671c677f127c *inst/doc/playoff-size.html
 166743d7ee4b7ee895fe142b9a322ffd *inst/doc/team-edge-archetypes.R
 cb2447eabfc2b9c53853d21369102091 *inst/doc/team-edge-archetypes.Rmd
 4489d0f70ef0c9139bfe228bc6f5d83b *inst/doc/team-edge-archetypes.html
@@ -124,11 +124,6 @@ e92a3ac81137d7a20d36a0bcf737f106 *man/dot-html_desc_owner_team_id.Rd
 9db0d24221b4bb9a52c3ce4af6fe508d *man/dot-html_event_code_to_type_desc.Rd
 8ea9cbb025f269f218fb4096f5fabcb3 *man/dot-html_extract_actor_player_ids.Rd
 378a69b975e034c7cddfaf3d17f1203d *man/dot-html_extract_tagged_players.Rd
-b5ea156e1d2375741870f43ab73bace3 *man/dot-html_on_ice_can_override_strength_context.Rd
-443da2087f493975afa82a31eb00e603 *man/dot-html_on_ice_matches_event_actors.Rd
-49f9209bb2cc928affd60cca989255e6 *man/dot-html_on_ice_matches_late_empty_net.Rd
-523453b99db2ea9837cf010a5cf0eaa3 *man/dot-html_on_ice_matches_reconstructed_strength.Rd
-93628d2cc8364bf4b65f4c4397c904c6 *man/dot-html_on_ice_matches_situation_code.Rd
 c85ed253cf95152e9a17eea17332670e *man/dot-html_pbp_report_url.Rd
 a61a59a504fdb79864ce59b22661e211 *man/dot-html_report_request.Rd
 be6663bae5f153b22c64d24c27c2e0b5 *man/dot-lookup_roster_player_id.Rd
@@ -147,7 +142,6 @@ b76c6124e311a573a09b054a738e9977 *man/dot-on_ice_int_col.Rd
 7b24776c34da200b1286b92c6baf782d *man/dot-on_ice_skater_slots.Rd
 391a28951cb1c01db79e37e44648756d *man/dot-on_ice_timing_scalar_column_names.Rd
 eb2432578ebebc77394992c8365d12b0 *man/dot-optional_html_pbp_rows_from_response.Rd
-01c157434d8134a975b2c83fb3ff3e96 *man/dot-override_strength_context_from_html.Rd
 d497f25b6d434cd37d7f32872a1a6bc1 *man/dot-parallel_request_failed.Rd
 cd1e40624996ad954b65b45e46565af7 *man/dot-parse_html_elapsed_clock.Rd
 849dc6c284c9d9b6a558bf49282a0329 *man/dot-parse_html_on_ice_cell.Rd
@@ -159,7 +153,6 @@ a9c1f711c72f9a6e89c3555de8653b65 *man/dot-parse_situation_code_components.Rd
 91eca4984477e26e40211193bd861ee7 *man/dot-perform_parallel_requests.Rd
 3cd1ead21514e650adab2eb8b9cd026f *man/dot-public_pbp_is_shootout_eligible.Rd
 3e020cc03ab8fa1ae57f1ef095966d76 *man/dot-public_pbp_legal_period_seconds.Rd
-c24d30993e5f6117ba1ee83e8107999c *man/dot-reconstruct_skater_counts_from_penalties.Rd
 e55590bd88f074f9b5946297042e4248 *man/dot-repair_public_pbp_sequence.Rd
 2e1a7eadcc3302d3c6981ec501a4e87a *man/dot-require_public_pbp_columns.Rd
 39fa1712594f5b2be7f24382f3f08db6 *man/dot-require_shift_chart_columns.Rd
@@ -332,6 +325,8 @@ e0db94158277d5bafdd8e6228cd7d22f *man/season_now.Rd
 177a71aaa3bd29ea065e6b94591a9322 *man/series.Rd
 139a9b199c02cbee0d0c4eff98e6f829 *man/series_schedule.Rd
 e5b20a041225f180f7f2f6b01b794e37 *man/shift_chart.Rd
+0cd9aea96a6d9cda4e40f92774d2a099 *man/shift_chart_summaries.Rd
+57a0611b664a9f592a7efb70dd27de29 *man/shift_chart_summary.Rd
 42f37cfbfc6f448153b4d79ca47503f4 *man/shift_charts.Rd
 437f4f763f12d8cdb585d7786a4cab97 *man/shifts.Rd
 8f56087f6b1ab7314353a7159bb6c10d *man/skater_edge_leaders.Rd
@@ -388,7 +383,7 @@ f23b8ebb2f558ee0b15fb9392a096219 *man/wsc_play_by_play.Rd
 02d8b84740272bb0277132fc8a0eba1a *man/x_game_cumulative_expected_goals.Rd
 fb434de446e0e780af25cca01cce2faf *man/x_game_shot_locations.Rd
 a7cccde248e87d0672cb0a03f521bec1 *src/init.c
-b64250bc1f4089ba4bfb0e063f2a8981 *src/on_ice_shift_timings.c
+aeb277005ed69d5d663122666c8c6b35 *src/on_ice_shift_timings.c
 543e96d7fa9060336cd147685eaeaf2e *src/pbp_deltas.c
 2f1c1e411656e9462bf8c0b01e419c83 *src/pbp_shot_context.c
 f16d5f56d5d569db8aa329852fae5986 *tests/testthat.R
@@ -465,11 +460,13 @@ a51607a101c231162c90f44d5972da02 *tests/testthat/test-goalie_season_statistics.R
 1e992cc39bff316936b5d008ba752d58 *tests/testthat/test-goalie_series_stats.R
 167e3bb442f3787b2db20c010e941113 *tests/testthat/test-goalie_statistics.R
 c9744b8dc491f9ea0774206a204b6117 *tests/testthat/test-goalie_stats.R
-0c29bf6f70b8462472dddc2123545d91 *tests/testthat/test-html_on_ice_pbp.R
+6feb47096679b743b74ac62fdfb8bfe4 *tests/testthat/test-html_on_ice_pbp.R
 dd8b0c8930ae235f2a1bb0cc496c5ceb *tests/testthat/test-load_pbp_raw.R
+1ab1787eb98ada6c5cbe009e0594cbdb *tests/testthat/test-load_shift_chart_summaries.R
 701a3aaae60908900e79877d49633048 *tests/testthat/test-location.R
 889f2c71c1006d3c0fccfdd786e5296a *tests/testthat/test-lottery_odds.R
 c60d02f6320d3dd41bf8f86008428926 *tests/testthat/test-officials.R
+83620c4b7b2b26acb7ebdf57534f5626 *tests/testthat/test-on_ice_shift_timings.R
 77040dfefde31845c8d1662864f54724 *tests/testthat/test-pbp_schema.R
 98db157819001de82719d5aad4dd543c *tests/testthat/test-penalty_shots.R
 c4d4fdbed4cf7c95511785e7e1a86b93 *tests/testthat/test-player_game_log.R
@@ -488,7 +485,7 @@ ae817d647c09f69d4546d39db246dc85 *tests/testthat/test-roster_stats.R
 126062efef28eb617699ae741a67d1c8 *tests/testthat/test-seasons.R
 7807dd49333700b5e02f9e014d3dd86b *tests/testthat/test-series.R
 87c6dd387484e080d1ddda6ac5f61a79 *tests/testthat/test-series_schedule.R
-5bad4d36f907506d6b31c776ad19217a *tests/testthat/test-shift_chart.R
+39d1e73ae03d2627bcb354b9f1afb19e *tests/testthat/test-shift_chart.R
 220bb9ea78bdb0a1f4fa89eb98f18b8e *tests/testthat/test-short_missed_shots.R
 8d8ce819508590c40b21ebdef641d924 *tests/testthat/test-skater_edge_leaders.R
 4435616888ea6e5e7987ad9f9325d8cd *tests/testthat/test-skater_edge_seasons.R
@@ -542,6 +539,6 @@ c95ba624548568b6312b2b4af19952a5 *tests/testthat/test-wsc_play_by_play.R
 a8d05c568e987da2a117b9ecc8af41fc *vignettes/draft-size-bias.Rmd
 64132aac4adf8598899c8f1607a1d2df *vignettes/expected-goals-model.Rmd
 da2628eeb43e5d3e11e3e65bac64b8f3 *vignettes/game-7-shot-quality.Rmd
-abda29aaa6b6f719bfa4e3ab5424771b *vignettes/play-by-play-pipeline.Rmd
+266ae9ae135cfebb515a50adf9847b40 *vignettes/play-by-play-pipeline.Rmd
 9e6c7ed5e57ea00a55eca02511f40620 *vignettes/playoff-size.Rmd
 cb2447eabfc2b9c53853d21369102091 *vignettes/team-edge-archetypes.Rmd
