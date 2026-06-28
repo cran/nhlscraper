@@ -22,12 +22,15 @@ such as \code{typeDescKey}, \code{period}, \code{SOGFor}, \code{SOGAgainst}, and
 data.frame with one row per event (play) and added \code{xG} column
 }
 \description{
-\code{calculate_expected_goals()} scores shot events with \code{nhlscraper}'s built-in
-ridge expected-goals model. The runtime model is a fixed six-partition system:
-\code{sd} (5v5), \code{ev} (other even strength), \code{pp} (power play), \code{sh}
-(short-handed), \code{en} (empty net against), and \code{ps} (penalty shot; trained on
-penalty-shot and shootout-style rows). The legacy \code{model} argument is
-accepted for backward compatibility but ignored.
+\code{calculate_expected_goals()} scores shot events with \code{nhlscraper}'s rolling
+XGBoost expected-goals models. The package ships the small preprocessing
+bundle and downloads needed boosters from the companion NHLxG model store
+into a local user cache on first use. Each shot is routed to the matching
+season vintage and one of six game-state partitions: \code{sd} (5v5), \code{ev} (other
+even strength), \code{pp} (power play), \code{sh} (short-handed), \code{en} (empty net
+against), and \code{ps} (penalty shot; trained on penalty-shot and shootout-style
+rows). The legacy \code{model} argument is accepted for backward compatibility but
+ignored.
 }
 \examples{
 # May take >5s, so skip.

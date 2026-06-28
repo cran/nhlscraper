@@ -1,10 +1,11 @@
+# Deprecated Functions ---------------------------------------------------------
+
 #' Access all the drafts
 #' 
 #' `get_drafts()` is deprecated. Use [drafts()] instead.
 #'
 #' @returns data.frame with one row per draft
 #' @export
-
 get_drafts <- function() {
   .Deprecated(
     new     = 'drafts()',
@@ -23,7 +24,6 @@ get_drafts <- function() {
 #' 
 #' @returns data.frame with one row per pick
 #' @export
-
 get_draft_picks <- function() {
   .Deprecated(
     new     = 'draft_picks()',
@@ -46,7 +46,6 @@ get_draft_picks <- function() {
 #' Goalies)
 #' @returns data.frame with one row per player
 #' @export
-
 get_draft_rankings <- function(
   year        = season_now() %/% 1e4,
   player_type = 1
@@ -68,7 +67,6 @@ get_draft_rankings <- function(
 #' 
 #' @returns data.frame with one row per player
 #' @export
-
 get_draft_tracker <- function() {
   .Deprecated(
     new     = 'draft_tracker()',

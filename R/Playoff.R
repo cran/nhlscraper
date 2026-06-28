@@ -1,16 +1,19 @@
+# Playoff Functions ---------------------------------------------------------
+
 #' Access all the playoff series by game
 #'
-#' `series()` retrieves all the playoff series by game as a `data.frame` where each row represents game per series and includes detail on game timeline state, period/clock progression, and matchup flow, date/season filtering windows and chronological context, and playoff-series progression, round status, and series leverage.
+#' `series()` returns the records-site playoff-series game table with one row
+#' per game/series entry, including season, series letter, round, teams, and
+#' game ID fields.
 #'
 #' @returns data.frame with one row per game per series
 #' @examples
 #' # May take >5s, so skip.
 #' \donttest{all_series <- series()}
 #' @export
-
 series <- function() {
   tryCatch({
-    series    <- nhl_api(
+    series    <- .nhl_api(
       path = 'playoff-series',
       type = 'r'
     )$data
@@ -24,16 +27,16 @@ series <- function() {
 
 #' Access the playoff statistics by season
 #'
-#' `playoff_season_statistics()` retrieves the playoff statistics by season as a `data.frame` where each row represents season and includes detail on date/season filtering windows and chronological context.
+#' `playoff_season_statistics()` returns league-wide playoff totals by season,
+#' including games, goals, and related year-level totals.
 #'
 #' @returns data.frame with one row per season
 #' @examples
 #' playoff_season_stats <- playoff_season_statistics()
 #' @export
-
 playoff_season_statistics <- function() {
   tryCatch({
-    totals    <- nhl_api(
+    totals    <- .nhl_api(
       path = 'league-playoff-year-totals',
       type = 'r'
     )$data
@@ -47,14 +50,14 @@ playoff_season_statistics <- function() {
 
 #' @rdname playoff_season_statistics
 #' @export
-
 playoff_season_stats <- function() {
   playoff_season_statistics()
 }
 
 #' Access the playoff bracket for a season
 #'
-#' `bracket()` retrieves the playoff bracket for a season as a `data.frame` where each row represents series and includes detail on team identity, affiliation, and matchup-side context.
+#' `bracket()` returns the public playoff bracket for one season, with one row
+#' per series and normalized team, seed, score, and series-status fields.
 #'
 #' @inheritParams roster
 #'
@@ -62,19 +65,18 @@ playoff_season_stats <- function() {
 #' @examples
 #' bracket_20242025 <- bracket(season = 20242025)
 #' @export
-
 bracket <- function(season = season_now()){
   tryCatch(
     expr = {
-      series <- data.frame(nhl_api(
+      series <- data.frame(.nhl_api(
         path = sprintf(
           'v1/playoff-bracket/%s', 
           suppressWarnings(as.integer(season)) %% 1e4
         ),
         type = 'w'
       )$series)
-      names(series) <- normalize_locale_names(names(series))
-      names(series) <- normalize_team_abbrev_cols(names(series))
+      names(series) <- .normalize_locale_names(names(series))
+      names(series) <- .normalize_team_abbrev_cols(names(series))
       series
     },
     error = function(e) {
@@ -86,7 +88,9 @@ bracket <- function(season = season_now()){
 
 #' Access the playoff schedule for a season and series
 #'
-#' `series_schedule()` retrieves the playoff schedule for a season and series as a `data.frame` where each row represents game and includes detail on game timeline state, period/clock progression, and matchup flow, date/season filtering windows and chronological context, and team identity, affiliation, and matchup-side context.
+#' `series_schedule()` returns the public schedule for one playoff series, with
+#' one row per game and normalized game, team, score/status, venue, and broadcast
+#' fields.
 #'
 #' @inheritParams roster
 #' @param series one-letter code (e.g., 'O'); see [series()] and/or 
@@ -99,11 +103,10 @@ bracket <- function(season = season_now()){
 #'   series = 'O'
 #' )
 #' @export
-
 series_schedule <- function(season = season_now() - 10001, series = 'a') {
   tryCatch(
     expr = {
-      games <- nhl_api(
+      games <- .nhl_api(
         path = sprintf(
           'v1/schedule/playoff-series/%s/%s', 
           season, 
@@ -114,8 +117,8 @@ series_schedule <- function(season = season_now() - 10001, series = 'a') {
       names(games)[names(games) == 'id']       <- 'gameId'
       names(games)[names(games) == 'season']   <- 'seasonId'
       names(games)[names(games) == 'gameType'] <- 'gameTypeId'
-      names(games) <- normalize_locale_names(names(games))
-      names(games) <- normalize_team_abbrev_cols(names(games))
+      names(games) <- .normalize_locale_names(names(games))
+      names(games) <- .normalize_team_abbrev_cols(names(games))
       games
     },
     error = function(e) {

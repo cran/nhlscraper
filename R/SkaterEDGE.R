@@ -1,17 +1,19 @@
+# Skater EDGE Functions ---------------------------------------------------------
+
 #' Access the season(s) and game type(s) in which there exists skater EDGE 
 #' statistics
 #'
-#' `skater_edge_seasons()` retrieves the season(s) and game type(s) in which there exists skater EDGE statistics as a `data.frame` where each row represents season and includes detail on date/season filtering windows and chronological context plus NHL EDGE style tracking outputs and relative-performance context.
+#' `skater_edge_seasons()` returns the seasons and game type IDs for which the
+#' NHL EDGE skater endpoints expose data.
 #'
 #' @returns data.frame with one row per season
 #' @examples
 #' skater_EDGE_seasons <- skater_edge_seasons()
 #' @export
-
 skater_edge_seasons <- function() {
   tryCatch(
     expr = {
-      seasons <- nhl_api(
+      seasons <- .nhl_api(
         path = sprintf('v1/edge/skater-landing/now'),
         type = 'w'
       )$seasonsWithEdgeStats
@@ -28,7 +30,9 @@ skater_edge_seasons <- function() {
 
 #' Access the skater EDGE statistics leaders for a season and game type
 #'
-#' `skater_edge_leaders()` retrieves the skater EDGE statistics leaders for a season and game type as a nested `list` that separates summary and detail blocks for NHL EDGE style tracking outputs and relative-performance context.
+#' `skater_edge_leaders()` returns the skater EDGE landing-page leader groups
+#' for one season and game type, such as speed, distance, shot speed, shot
+#' location, and zone-time leader blocks.
 #'
 #' @param season integer in YYYYYYYY (e.g., 20242025); see 
 #' [skater_edge_seasons()] for reference
@@ -44,15 +48,14 @@ skater_edge_seasons <- function() {
 #'   game_type = 2
 #' )
 #' @export
-
 skater_edge_leaders <- function(season = 'now', game_type = '') {
   tryCatch(
     expr = {
-      nhl_api(
+      .nhl_api(
         path = sprintf(
           'v1/edge/skater-landing/%s/%s', 
           season, 
-          to_game_type_id(game_type)
+          .to_game_type_id(game_type)
         ),
         type = 'w'
       )$leaders
@@ -66,7 +69,9 @@ skater_edge_leaders <- function(season = 'now', game_type = '') {
 
 #' Access the EDGE summary for a skater, season, and game type
 #'
-#' `skater_edge_summary()` retrieves the EDGE summary for a skater, season, and game type as a nested `list` that separates summary and detail blocks for player identity, role, handedness, and biographical profile plus NHL EDGE style tracking outputs and relative-performance context.
+#' `skater_edge_summary()` returns the full NHL EDGE detail payload for one
+#' skater, season, and game type, including player metadata and the available
+#' skating, shot, and zone-time summary blocks.
 #'
 #' @inheritParams player_seasons
 #' @inheritParams skater_edge_leaders
@@ -79,7 +84,6 @@ skater_edge_leaders <- function(season = 'now', game_type = '') {
 #'   game_type = 2
 #' )
 #' @export
-
 skater_edge_summary <- function(
   player    = 8478402, 
   season    = 'now', 
@@ -87,12 +91,12 @@ skater_edge_summary <- function(
 ) {
   tryCatch(
     expr = {
-      nhl_api(
+      .nhl_api(
         path = sprintf(
           'v1/edge/skater-detail/%s/%s/%s', 
           player,
           season, 
-          to_game_type_id(game_type)
+          .to_game_type_id(game_type)
         ),
         type = 'w'
       )
@@ -107,7 +111,8 @@ skater_edge_summary <- function(
 #' Access the EDGE zone time statistics for a skater, season, game type, and 
 #' category
 #'
-#' `skater_edge_zone_time()` retrieves the EDGE zone time statistics for a skater, season, game type, and category as a `data.frame` where each row represents strength state and includes detail on NHL EDGE style tracking outputs and relative-performance context.
+#' `skater_edge_zone_time()` returns a skater's EDGE zone-time detail table by
+#' strength state, or the zone-start split list when `category = 'starts'`.
 #'
 #' @inheritParams skater_edge_summary
 #' @param category character of 'd'/'details' or 's'/'starts'
@@ -122,7 +127,6 @@ skater_edge_summary <- function(
 #'   category  = 'S'
 #' )
 #' @export
-
 skater_edge_zone_time <- function(
   player    = 8478402,
   season    = 'now', 
@@ -136,12 +140,12 @@ skater_edge_zone_time <- function(
         d = 'zoneTimeDetails',
         s = 'zoneStarts'
       )
-      nhl_api(
+      .nhl_api(
         path = sprintf(
           'v1/edge/skater-zone-time/%s/%s/%s', 
           player,
           season, 
-          to_game_type_id(game_type)
+          .to_game_type_id(game_type)
         ),
         type = 'w'
       )[[category]]
@@ -156,7 +160,8 @@ skater_edge_zone_time <- function(
 #' Access the EDGE skating distance statistics for a skater, season, game type, 
 #' and category
 #'
-#' `skater_edge_skating_distance()` retrieves the EDGE skating distance statistics for a skater, season, game type, and category as a `data.frame` where each row represents strength state and includes detail on team identity, affiliation, and matchup-side context, player identity, role, handedness, and biographical profile, and tracking/spatial detail such as location, speed, distance, and zone distribution.
+#' `skater_edge_skating_distance()` returns a skater's EDGE distance detail by
+#' strength state, or recent game rows when `category = 'last 10'`.
 #'
 #' @inheritParams skater_edge_summary
 #' @param category character of 'd'/'details' or 'l'/'l10'/'last 10'
@@ -172,7 +177,6 @@ skater_edge_zone_time <- function(
 #'     category  = 'L'
 #'   )
 #' @export
-
 skater_edge_skating_distance <- function(
   player    = 8478402,
   season    = 'now', 
@@ -186,12 +190,12 @@ skater_edge_skating_distance <- function(
         d = 'skatingDistanceDetails',
         l = 'skatingDistanceLast10'
       )
-      nhl_api(
+      .nhl_api(
         path = sprintf(
           'v1/edge/skater-skating-distance-detail/%s/%s/%s', 
           player,
           season, 
-          to_game_type_id(game_type)
+          .to_game_type_id(game_type)
         ),
         type = 'w'
       )[[category]]
@@ -206,7 +210,8 @@ skater_edge_skating_distance <- function(
 #' Access the EDGE skating speed statistics for a skater, season, game type, and 
 #' category
 #'
-#' `skater_edge_skating_speed()` retrieves the EDGE skating speed statistics for a skater, season, game type, and category as a nested `list` that separates summary and detail blocks for NHL EDGE style tracking outputs and relative-performance context.
+#' `skater_edge_skating_speed()` returns a skater's EDGE skating-speed detail
+#' list, or top-speed burst rows when `category = 'top speeds'`.
 #'
 #' @inheritParams skater_edge_summary
 #' @param category character of 'd'/'details' or 't'/'top'/'top speeds'
@@ -221,7 +226,6 @@ skater_edge_skating_distance <- function(
 #'   category  = 'T'
 #' )
 #' @export
-
 skater_edge_skating_speed <- function(
   player    = 8478402,
   season    = 'now', 
@@ -235,12 +239,12 @@ skater_edge_skating_speed <- function(
         d = 'skatingSpeedDetails',
         t = 'topSkatingSpeeds'
       )
-      nhl_api(
+      .nhl_api(
         path = sprintf(
           'v1/edge/skater-skating-speed-detail/%s/%s/%s', 
           player,
           season, 
-          to_game_type_id(game_type)
+          .to_game_type_id(game_type)
         ),
         type = 'w'
       )[[category]]
@@ -255,7 +259,8 @@ skater_edge_skating_speed <- function(
 #' Access the EDGE shot location statistics for a skater, season, game type, and 
 #' category
 #'
-#' `skater_edge_shot_location()` retrieves the EDGE shot location statistics for a skater, season, game type, and category as a `data.frame` where each row represents shot location and includes detail on production, workload, efficiency, and result-level performance outcomes plus NHL EDGE style tracking outputs and relative-performance context.
+#' `skater_edge_shot_location()` returns a skater's EDGE shot-location detail
+#' by rink region, or totals by shot-location bucket when `category = 'totals'`.
 #'
 #' @inheritParams skater_edge_summary
 #' @param category character of 'd'/details' or 't'/'totals'
@@ -270,7 +275,6 @@ skater_edge_skating_speed <- function(
 #'     category  = 'T'
 #'   )
 #' @export
-
 skater_edge_shot_location <- function(
   player    = 8478402,
   season    = 'now', 
@@ -284,12 +288,12 @@ skater_edge_shot_location <- function(
         d = 'shotLocationDetails',
         t = 'shotLocationTotals'
       )
-      nhl_api(
+      .nhl_api(
         path = sprintf(
           'v1/edge/skater-shot-location-detail/%s/%s/%s', 
           player,
           season, 
-          to_game_type_id(game_type)
+          .to_game_type_id(game_type)
         ),
         type = 'w'
       )[[category]]
@@ -304,7 +308,8 @@ skater_edge_shot_location <- function(
 #' Access the EDGE shot speed statistics for a skater, season, game type, and 
 #' category
 #'
-#' `skater_edge_shot_speed()` retrieves the EDGE shot speed statistics for a skater, season, game type, and category as a nested `list` that separates summary and detail blocks for NHL EDGE style tracking outputs and relative-performance context.
+#' `skater_edge_shot_speed()` returns a skater's EDGE shot-speed detail list, or
+#' hardest-shot rows when `category = 'hardest'`.
 #'
 #' @inheritParams skater_edge_summary
 #' @param category character of 'd'/'details' or 'h'/'hardest'
@@ -319,12 +324,11 @@ skater_edge_shot_location <- function(
 #'   category  = 'H'
 #' )
 #' @export
-
 skater_edge_shot_speed <- function(
-    player    = 8478402,
-    season    = 'now', 
-    game_type = '', 
-    category  = 'details'
+  player    = 8478402,
+  season    = 'now',
+  game_type = '',
+  category  = 'details'
 ) {
   tryCatch(
     expr = {
@@ -333,12 +337,12 @@ skater_edge_shot_speed <- function(
         d = 'shotSpeedDetails',
         h = 'hardestShots',
       )
-      nhl_api(
+      .nhl_api(
         path = sprintf(
           'v1/edge/skater-shot-speed-detail/%s/%s/%s', 
           player,
           season, 
-          to_game_type_id(game_type)
+          .to_game_type_id(game_type)
         ),
         type = 'w'
       )[[category]]

@@ -1,15 +1,17 @@
+# Official Functions ---------------------------------------------------------
+
 #' Access all the officials
 #'
-#' `officials()` retrieves all the officials as a `data.frame` where each row represents official and includes detail on player identity, role, handedness, and biographical profile plus coach/management/officiating identity and assignment history.
+#' `officials()` returns the records-site official registry with one row per
+#' official and normalized official ID, name, and referee-association fields.
 #'
 #' @returns data.frame with one row per official
 #' @examples
 #' all_officials <- officials()
 #' @export
-
 officials <- function() {
   tryCatch({
-    officials <- nhl_api(
+    officials <- .nhl_api(
       path = 'officials',
       type = 'r'
     )$data

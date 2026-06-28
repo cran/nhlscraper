@@ -1,18 +1,20 @@
+# ESPNPlayer Functions ---------------------------------------------------------
+
 #' Access all the ESPN players
 #'
-#' `espn_players()` retrieves all the ESPN players as a `data.frame` where each row represents ESPN player and includes detail on person-level profile context and performance history with situational splits.
+#' `espn_players()` pages ESPN's athlete index and returns one row per athlete
+#' containing the ESPN player ID used by [espn_player_summary()].
 #'
 #' @returns data.frame with one row per ESPN player
 #' @examples
 #' all_ESPN_players <- espn_players()
 #' @export
-
 espn_players <- function() {
   tryCatch({
     page <- 1
     all_players <- list()
     repeat {
-      players <- espn_api(
+      players <- .espn_api(
         path  = 'athletes',
         query = list(limit = 1000, page = page),
         type  = 'c'
@@ -33,7 +35,9 @@ espn_players <- function() {
 
 #' Access the ESPN summary for a player
 #'
-#' `espn_player_summary()` retrieves the ESPN summary for a player as a `data.frame` where each row represents one result and includes detail on game timing, matchup state, scoring flow, and situational event detail.
+#' `espn_player_summary()` returns a compact one-row ESPN athlete profile with
+#' name, birth, size, handedness, draft, debut, position, experience, and active
+#' status fields.
 #'
 #' @param player integer ID (e.g., 3988803); see [espn_players()] for 
 #' reference
@@ -42,7 +46,6 @@ espn_players <- function() {
 #' @examples
 #' ESPN_summary_Charlie_McAvoy <- espn_player_summary(player = 3988803)
 #' @export
-
 espn_player_summary <- function(player = 3988803) {
   get_or_na <- function(x, ...) {
     tryCatch({
@@ -54,7 +57,7 @@ espn_player_summary <- function(player = 3988803) {
     }, error = function(e) NA)
   }
   player <- tryCatch(
-    espn_api(
+    .espn_api(
       path = sprintf('athletes/%s', player),
       type = 'c'
     ),

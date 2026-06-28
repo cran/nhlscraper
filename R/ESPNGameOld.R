@@ -1,3 +1,5 @@
+# Deprecated Functions ---------------------------------------------------------
+
 #' Access the ESPN summary for an event (game)
 #' 
 #' `get_espn_event()` is deprecated. Use [espn_game_summary()] instead.
@@ -6,7 +8,6 @@
 #' reference
 #' @return data.frame with one row per event (game)
 #' @export
-
 get_espn_event <- function(event = 401777460) {
   .Deprecated(
     new     = 'espn_game_summary()',
@@ -27,7 +28,6 @@ get_espn_event <- function(event = 401777460) {
 #' @inheritParams get_espn_event
 #' @returns data.frame with one row per play
 #' @export
-
 get_espn_event_play_by_play <- function(event = 401777460) {
   .Deprecated(
     new     = 'espn_play_by_play()',
@@ -48,7 +48,6 @@ get_espn_event_play_by_play <- function(event = 401777460) {
 #' @inheritParams get_espn_event
 #' @returns data.frame with one row per provider
 #' @export
-
 get_espn_event_odds <- function(event = 401777460) {
   .Deprecated(
     new     = 'espn_game_odds()',
@@ -66,7 +65,6 @@ get_espn_event_odds <- function(event = 401777460) {
 #' `get_espn_events()` is defunct. Use [espn_games()] instead.
 #' 
 #' @export
-
 get_espn_events <- function() {
   .Defunct(
     new     = 'espn_games()',
@@ -84,7 +82,6 @@ get_espn_events <- function() {
 #' [wsc_summary()] instead.
 #' 
 #' @export
-
 get_espn_event_stars <- function() {
   .Defunct(
     new     = 'gc_summary()',
@@ -102,7 +99,6 @@ get_espn_event_stars <- function() {
 #' [wsc_summary()] instead.
 #' 
 #' @export
-
 get_espn_event_officials <- function() {
   .Defunct(
     new     = 'gc_summary()',

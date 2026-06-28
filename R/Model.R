@@ -1,11 +1,14 @@
 #' Calculate the expected goals for all the shots in (a) play-by-plays
 #'
-#' `calculate_expected_goals()` scores shot events with `nhlscraper`'s built-in
-#' ridge expected-goals model. The runtime model is a fixed six-partition system:
-#' `sd` (5v5), `ev` (other even strength), `pp` (power play), `sh`
-#' (short-handed), `en` (empty net against), and `ps` (penalty shot; trained on
-#' penalty-shot and shootout-style rows). The legacy `model` argument is
-#' accepted for backward compatibility but ignored.
+#' `calculate_expected_goals()` scores shot events with `nhlscraper`'s rolling
+#' XGBoost expected-goals models. The package ships the small preprocessing
+#' bundle and downloads needed boosters from the companion NHLxG model store
+#' into a local user cache on first use. Each shot is routed to the matching
+#' season vintage and one of six game-state partitions: `sd` (5v5), `ev` (other
+#' even strength), `pp` (power play), `sh` (short-handed), `en` (empty net
+#' against), and `ps` (penalty shot; trained on penalty-shot and shootout-style
+#' rows). The legacy `model` argument is accepted for backward compatibility but
+#' ignored.
 #'
 #' @param play_by_play data.frame of play-by-play(s) using the current public
 #'   schema returned by [gc_play_by_play()], [gc_play_by_plays()],
@@ -24,27 +27,23 @@
 calculate_expected_goals <- function(play_by_play, model = NULL) {
   tryCatch(
     expr = {
-      .xg_warn_ignored_model(model, "calculate_expected_goals")
-
+      .xg_warn_ignored_model(model, 'calculate_expected_goals')
       pbp <- .xg_prepare_play_by_play(play_by_play)
       n <- nrow(pbp)
       xg <- rep(NA_real_, n)
-
       is_shot <- .shot_event_mask(
         pbp,
-        c("goal", "shot-on-goal", "missed-shot")
+        c('goal', 'shot-on-goal', 'missed-shot')
       )
       if (!any(is_shot)) {
         play_by_play$xG <- xg
         return(play_by_play)
       }
-
       shot_idx <- which(is_shot)
       shots <- .xg_build_model_frame(
         shots = pbp[shot_idx, , drop = FALSE],
         play_by_play = pbp
       )
-
       partition <- .xg_partition_shots(shots)
       goalie_ids <- unique(
         as.integer(
@@ -53,24 +52,34 @@ calculate_expected_goals <- function(play_by_play, model = NULL) {
       )
       shooter_ids <- as.integer(shots$shootingPlayerId)
       score_ok <- is.na(shooter_ids) | !(shooter_ids %in% goalie_ids)
-
-      for (key in names(XG_RIDGE_MODEL_SPECS)) {
-        idx <- which(score_ok & !is.na(partition) & partition == key)
-        if (!length(idx)) {
-          next
+      bundle <- .xg_load_bundle()
+      target_season <- .xg_select_target_season(shots$gameId, bundle)
+      for (target in sort(unique(target_season))) {
+        for (key in bundle$partition_specs) {
+          idx <- which(
+            score_ok &
+              !is.na(target_season) &
+              target_season == target &
+              !is.na(partition) &
+              partition == key
+          )
+          if (!length(idx)) {
+            next
+          }
+          model_key <- .xg_model_key(target, key)
+          xg[shot_idx[idx]] <- .xg_score_xgboost(
+            shots[idx, , drop = FALSE],
+            model_key,
+            bundle
+          )
         }
-        xg[shot_idx[idx]] <- .xg_score_partition(
-          shots[idx, , drop = FALSE],
-          XG_RIDGE_MODEL_SPECS[[key]]
-        )
       }
-
       play_by_play$xG <- xg
       play_by_play
     },
     error = function(e) {
       message(conditionMessage(e))
-      message("Invalid argument(s); refer to help file.")
+      message('Invalid argument(s); refer to help file.')
       play_by_play
     }
   )
@@ -82,6 +91,29 @@ calculate_xG <- function(play_by_play, model = NULL) {
   calculate_expected_goals(play_by_play, model)
 }
 
+# Model Loading Helpers ---------------------------------------------------------
+
+# Initialize xG model cache.
+.xg_model_cache <- new.env(parent = emptyenv())
+
+#' Get default xG model base URL
+#'
+#' `.xg_default_model_base_url()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_default_model_base_url <- function() {
+  'https://huggingface.co/datasets/RentoSaijo/NHLxG/resolve/main'
+}
+
+#' Warn about ignored xG model argument
+#'
+#' `.xg_warn_ignored_model()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param model legacy model argument
+#' @param fn_name character caller name
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_warn_ignored_model <- function(model, fn_name) {
   if (missing(model) || is.null(model)) {
     return(invisible(NULL))
@@ -92,7 +124,7 @@ calculate_xG <- function(play_by_play, model = NULL) {
   }
   warning(
     sprintf(
-      "`%s()` now uses one built-in six-partition ridge xG model; `model` is ignored.",
+      '`%s()` now uses rolling XGBoost xG models; `model` is ignored.',
       fn_name
     ),
     call. = FALSE
@@ -100,13 +132,542 @@ calculate_xG <- function(play_by_play, model = NULL) {
   invisible(NULL)
 }
 
+#' Locate xG extdata directory
+#'
+#' `.xg_extdata_dir()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_extdata_dir <- function() {
+  path <- system.file(
+    'extdata',
+    'xgboost',
+    package = 'nhlscraper',
+    mustWork = FALSE
+  )
+  if (!nzchar(path)) {
+    path <- file.path('inst', 'extdata', 'xgboost')
+  }
+  path
+}
+
+#' Locate bundled xG metadata
+#'
+#' `.xg_bundle_path()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_bundle_path <- function() {
+  file.path(.xg_extdata_dir(), 'nhlscraper_xgboost_bundle.rds')
+}
+
+#' Read xG model base URL option
+#'
+#' `.xg_model_base_url()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_model_base_url <- function() {
+  url <- getOption(
+    'nhlscraper.xg_model_base_url',
+    .xg_default_model_base_url()
+  )
+  url <- as.character(url[[1L]])
+  url <- sub('/+$', '', url)
+  if (!grepl('^https://', url)) {
+    stop('xG model base URL must use HTTPS.', call. = FALSE)
+  }
+  url
+}
+
+#' Read xG auto-download option
+#'
+#' `.xg_auto_download()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_auto_download <- function() {
+  isTRUE(getOption('nhlscraper.xg_auto_download', TRUE))
+}
+
+#' Locate xG cache directory
+#'
+#' `.xg_cache_dir()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_cache_dir <- function() {
+  path <- getOption('nhlscraper.xg_cache_dir', NULL)
+  if (is.null(path) || !nzchar(as.character(path[[1L]]))) {
+    return(tools::R_user_dir('nhlscraper', 'cache'))
+  }
+  as.character(path[[1L]])
+}
+
+#' Build xG bundle cache version
+#'
+#' `.xg_bundle_version()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param bundle xG model bundle
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_bundle_version <- function(bundle = .xg_load_bundle()) {
+  target <- max(as.integer(bundle$model_index$targetSeason), na.rm = TRUE)
+  built_at_raw <- bundle$built_at
+  if (is.null(built_at_raw) || !length(built_at_raw)) {
+    built_at <- 'unknown'
+  } else {
+    built_at <- as.character(built_at_raw[[1L]])
+  }
+  if (!length(built_at) || is.na(built_at)) {
+    built_at <- 'unknown'
+  }
+  built_at <- gsub('[^A-Za-z0-9]+', '-', built_at)
+  built_at <- gsub('(^-+|-+$)', '', built_at)
+  if (nzchar(built_at)) {
+    paste0('v', target, '-', built_at)
+  } else {
+    paste0('v', target)
+  }
+}
+
+#' Validate xG booster path
+#'
+#' `.xg_validate_booster_path()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param path character file or bundle path
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_validate_booster_path <- function(path) {
+  path <- as.character(path[[1L]])
+  if (
+    !length(path) ||
+      is.na(path) ||
+      !nzchar(path) ||
+      grepl('\\\\', path) ||
+      grepl('^/', path) ||
+      grepl('^[A-Za-z]:', path) ||
+      grepl('(^|/)[.][.](/|$)', path) ||
+      !startsWith(path, 'models/') ||
+      !grepl('[.]xgb$', path)
+  ) {
+    stop('Unsafe xG booster path in model bundle.', call. = FALSE)
+  }
+  path
+}
+
+#' Read expected xG booster checksum
+#'
+#' `.xg_expected_booster_sha256()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param row data.frame model-index row
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_expected_booster_sha256 <- function(row) {
+  if (!('boosterSha256' %in% names(row))) {
+    stop('xG model bundle is missing booster checksums.', call. = FALSE)
+  }
+  sha <- tolower(as.character(row$boosterSha256[[1L]]))
+  if (!grepl('^[0-9a-f]{64}$', sha)) {
+    stop('Invalid xG booster checksum in model bundle.', call. = FALSE)
+  }
+  sha
+}
+
+#' Verify xG booster file checksum
+#'
+#' `.xg_verify_booster_file()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param path character file or bundle path
+#' @param row data.frame model-index row
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_verify_booster_file <- function(path, row) {
+  if (!file.exists(path)) {
+    return(FALSE)
+  }
+  actual <- tolower(unname(tools::sha256sum(path)))
+  identical(actual, .xg_expected_booster_sha256(row))
+}
+
+#' Resolve remote xG booster path
+#'
+#' `.xg_remote_booster_path()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param path character file or bundle path
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_remote_booster_path <- function(path) {
+  .xg_validate_booster_path(path)
+}
+
+#' Resolve cached xG booster path
+#'
+#' `.xg_cache_booster_path()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param path character file or bundle path
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_cache_booster_path <- function(path) {
+  sub('[.]xgb$', '.ubj', .xg_remote_booster_path(path))
+}
+
+#' Build xG booster URL
+#'
+#' `.xg_booster_url()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param path character file or bundle path
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_booster_url <- function(path) {
+  paste0(.xg_model_base_url(), '/', .xg_remote_booster_path(path))
+}
+
+#' Build cached xG booster path
+#'
+#' `.xg_cached_booster_path()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param path character file or bundle path
+#' @param bundle xG model bundle
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_cached_booster_path <- function(path, bundle = .xg_load_bundle()) {
+  file.path(
+    .xg_cache_dir(),
+    'xgboost',
+    .xg_bundle_version(bundle),
+    .xg_cache_booster_path(path)
+  )
+}
+
+#' Download xG booster file
+#'
+#' `.xg_download_booster()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param row data.frame model-index row
+#' @param bundle xG model bundle
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_download_booster <- function(row, bundle = .xg_load_bundle()) {
+  path <- .xg_validate_booster_path(row$boosterPath[[1L]])
+  dest <- .xg_cached_booster_path(path, bundle)
+  dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+  url <- .xg_booster_url(path)
+  tmp <- tempfile(
+    pattern = paste0(basename(dest), '-'),
+    tmpdir = dirname(dest)
+  )
+  on.exit(unlink(tmp), add = TRUE)
+  status <- tryCatch(
+    utils::download.file(
+      url = url,
+      destfile = tmp,
+      mode = 'wb',
+      quiet = TRUE
+    ),
+    error = function(e) e
+  )
+  if (inherits(status, 'error') || !identical(as.integer(status), 0L)) {
+    detail <- if (inherits(status, 'error')) {
+      conditionMessage(status)
+    } else if (!length(status)) {
+      'unknown'
+    } else {
+      status
+    }
+    stop(
+      paste0(
+        'Failed to download xG booster from ', url, '. ',
+        'Install the NHLxG model assets in the cache or set ',
+        '`options(nhlscraper.xg_model_base_url = ...)`. ',
+        'Download status: ', detail
+      ),
+      call. = FALSE
+    )
+  }
+  if (!file.exists(tmp)) {
+    stop('Downloaded xG booster was not written to disk.', call. = FALSE)
+  }
+  if (!.xg_verify_booster_file(tmp, row)) {
+    stop(
+      'Downloaded xG booster failed checksum verification.',
+      call. = FALSE
+    )
+  }
+  if (!file.rename(tmp, dest)) {
+    if (!file.copy(tmp, dest, overwrite = TRUE)) {
+      stop('Unable to cache downloaded xG booster.', call. = FALSE)
+    }
+  }
+  dest
+}
+
+#' Validate xG model bundle
+#'
+#' `.xg_validate_bundle()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param bundle xG model bundle
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_validate_bundle <- function(bundle) {
+  if (!is.list(bundle) || !is.data.frame(bundle$model_index)) {
+    stop('Invalid xG model bundle.', call. = FALSE)
+  }
+  required <- c('vintage', 'targetSeason', 'partition', 'boosterPath', 'boosterSha256')
+  missing <- setdiff(required, names(bundle$model_index))
+  if (length(missing)) {
+    stop('Invalid xG model bundle: missing model index columns.', call. = FALSE)
+  }
+  path_cols <- grep('Path$', names(bundle$model_index), value = TRUE)
+  unsafe_path_cols <- setdiff(path_cols, 'boosterPath')
+  if (length(unsafe_path_cols)) {
+    stop('Invalid xG model bundle: unexpected path columns.', call. = FALSE)
+  }
+  for (i in seq_len(nrow(bundle$model_index))) {
+    row <- bundle$model_index[i, , drop = FALSE]
+    .xg_validate_booster_path(row$boosterPath[[1L]])
+    .xg_expected_booster_sha256(row)
+  }
+  bundle
+}
+
+#' Load xG model bundle
+#'
+#' `.xg_load_bundle()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_load_bundle <- function() {
+  if (exists('bundle', envir = .xg_model_cache, inherits = FALSE)) {
+    return(get('bundle', envir = .xg_model_cache, inherits = FALSE))
+  }
+  path <- .xg_bundle_path()
+  if (!file.exists(path)) {
+    stop('Unable to locate bundled xG model metadata.', call. = FALSE)
+  }
+  bundle <- .xg_validate_bundle(readRDS(path))
+  assign('bundle', bundle, envir = .xg_model_cache)
+  bundle
+}
+
+#' Build xG model key
+#'
+#' `.xg_model_key()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param target_season integer target season
+#' @param partition character partition code
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_model_key <- function(target_season, partition) {
+  paste0('v', target_season, '_', partition)
+}
+
+#' Find xG model index row
+#'
+#' `.xg_model_index_row()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param model_key character xG model key
+#' @param bundle xG model bundle
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_model_index_row <- function(model_key, bundle = .xg_load_bundle()) {
+  index <- bundle$model_index
+  row <- index[
+    paste(index$vintage, index$partition, sep = '_') == model_key,
+    ,
+    drop = FALSE
+  ]
+  if (nrow(row) != 1L) {
+    stop('Unable to locate xG model index entry: ', model_key, call. = FALSE)
+  }
+  .xg_validate_booster_path(row$boosterPath[[1L]])
+  .xg_expected_booster_sha256(row)
+  row
+}
+
+#' Select xG target season
+#'
+#' `.xg_select_target_season()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param game_id integer game ID vector
+#' @param bundle xG model bundle
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_select_target_season <- function(game_id, bundle = .xg_load_bundle()) {
+  target_seasons <- sort(unique(as.integer(bundle$model_index$targetSeason)))
+  start_year <- suppressWarnings(
+    as.integer(substr(as.character(game_id), 1L, 4L))
+  )
+  season <- start_year * 10000L + start_year + 1L
+  out <- rep(max(target_seasons), length(season))
+  ok <- !is.na(season)
+  pos <- findInterval(season[ok], target_seasons)
+  pos[pos < 1L] <- 1L
+  pos[pos > length(target_seasons)] <- length(target_seasons)
+  out[ok] <- target_seasons[pos]
+  out
+}
+
+#' Resolve xG booster file path
+#'
+#' `.xg_resolve_booster_path()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param model_key character xG model key
+#' @param bundle xG model bundle
+#' @param download logical whether downloading is allowed
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_resolve_booster_path <- function(
+  model_key,
+  bundle = .xg_load_bundle(),
+  download = TRUE
+) {
+  row <- .xg_model_index_row(model_key, bundle)
+  booster_path <- row$boosterPath[[1L]]
+  cached_path <- .xg_cached_booster_path(booster_path, bundle)
+  if (file.exists(cached_path)) {
+    if (.xg_verify_booster_file(cached_path, row)) {
+      return(cached_path)
+    }
+    unlink(cached_path)
+    if (!isTRUE(download) || !.xg_auto_download()) {
+      stop(
+        'Cached xG booster failed checksum verification.',
+        call. = FALSE
+      )
+    }
+  }
+  if (!isTRUE(download) || !.xg_auto_download()) {
+    stop(
+      paste0(
+        'Unable to locate xG booster: ', model_key, '. ',
+        'Set `options(nhlscraper.xg_auto_download = TRUE)` to allow ',
+        'first-use downloads.'
+      ),
+      call. = FALSE
+    )
+  }
+  .xg_download_booster(row, bundle)
+}
+
+#' Load xG booster model
+#'
+#' `.xg_load_booster()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param model_key character xG model key
+#' @param bundle xG model bundle
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_load_booster <- function(model_key, bundle = .xg_load_bundle()) {
+  cache_key <- paste0('booster_', model_key)
+  if (exists(cache_key, envir = .xg_model_cache, inherits = FALSE)) {
+    return(get(cache_key, envir = .xg_model_cache, inherits = FALSE))
+  }
+  path <- .xg_resolve_booster_path(model_key, bundle)
+  booster <- xgboost::xgb.load(path)
+  assign(cache_key, booster, envir = .xg_model_cache)
+  booster
+}
+
+#' Encode categorical xG feature
+#'
+#' `.xg_encode_categorical()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param values vector feature values
+#' @param var character feature name
+#' @param spec xG preprocessing specification
+#' @param n integer row count
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_encode_categorical <- function(values, var, spec, n) {
+  if (is.null(values)) {
+    values <- rep(NA, n)
+  }
+  if (var %in% spec$logical_cols) {
+    values <- .xg_to_logical(values)
+    out <- rep(NA_character_, length(values))
+    out[!is.na(values) & values] <- 'yes'
+    out[!is.na(values) & !values] <- 'no'
+  } else {
+    out <- as.character(values)
+  }
+  out[is.na(out)] <- 'unknown'
+  known <- spec$levels[[var]]
+  known <- if (is.null(known)) character() else known
+  out[!(out %in% known)] <- 'new'
+  out
+}
+
+#' Bake xG model matrix
+#'
+#' `.xg_bake_matrix()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param data data.frame feature input
+#' @param spec xG preprocessing specification
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_bake_matrix <- function(data, spec) {
+  n <- nrow(data)
+  out <- matrix(0, nrow = n, ncol = length(spec$feature_names))
+  colnames(out) <- spec$feature_names
+  for (col in spec$numeric_cols) {
+    values <- if (col %in% names(data)) data[[col]] else rep(NA_real_, n)
+    values <- suppressWarnings(as.numeric(values))
+    values[is.na(values)] <- spec$medians[[col]]
+    out[, col] <- values
+  }
+  for (col in spec$categorical_cols) {
+    values <- .xg_encode_categorical(
+      values = if (col %in% names(data)) data[[col]] else NULL,
+      var = col,
+      spec = spec,
+      n = n
+    )
+    dummy_map <- spec$dummy_map[[col]]
+    for (level in names(dummy_map)) {
+      out[, dummy_map[[level]]] <- as.numeric(values == level)
+    }
+  }
+  out
+}
+
+#' Score shots with xGBoost
+#'
+#' `.xg_score_xgboost()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param df data.frame model-frame input
+#' @param model_key character xG model key
+#' @param bundle xG model bundle
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_score_xgboost <- function(df, model_key, bundle = .xg_load_bundle()) {
+  n <- nrow(df)
+  if (!n) {
+    return(numeric(0))
+  }
+  spec <- bundle$preprocess_specs[[model_key]]
+  if (is.null(spec)) {
+    stop('Unable to locate xG preprocessing spec: ', model_key, call. = FALSE)
+  }
+  booster <- .xg_load_booster(model_key, bundle)
+  mat <- .xg_bake_matrix(df, spec)
+  as.numeric(stats::predict(booster, mat))
+}
+
+#' Require current public play-by-play schema
+#'
+#' `.xg_require_current_public_schema()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param play_by_play data.frame play-by-play input
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_require_current_public_schema <- function(play_by_play) {
   legacy_aliases <- c(
-    eventTypeDescKey = "typeDescKey",
-    periodNumber = "period",
-    shotsFor = "SOGFor",
-    shotsAgainst = "SOGAgainst",
-    shotDifferential = "SOGDifferential"
+    eventTypeDescKey = 'typeDescKey',
+    periodNumber = 'period',
+    shotsFor = 'SOGFor',
+    shotsAgainst = 'SOGAgainst',
+    shotDifferential = 'SOGDifferential'
   )
   legacy_only <- names(legacy_aliases)[vapply(
     names(legacy_aliases),
@@ -116,48 +677,52 @@ calculate_xG <- function(play_by_play, model = NULL) {
     },
     logical(1)
   )]
-
   if (length(legacy_only)) {
     replacements <- paste(
       sprintf(
-        "%s -> %s",
+        '%s -> %s',
         unname(legacy_aliases[legacy_only]),
         legacy_only
       ),
-      collapse = ", "
+      collapse = ', '
     )
     stop(
       paste0(
-        "calculate_expected_goals() requires the current public play-by-play schema. ",
-        "Replace legacy xG alias columns with their public names: ",
+        'calculate_expected_goals() requires the current public play-by-play schema. ',
+        'Replace legacy xG alias columns with their public names: ',
         replacements
       ),
       call. = FALSE
     )
   }
-
   .require_public_pbp_columns(
     play_by_play,
     c(
-      "gameId",
-      "eventId",
-      "sortOrder",
-      "gameTypeId",
-      "periodNumber",
-      "eventOwnerTeamId",
-      "eventTypeDescKey",
-      "situationCode"
+      'gameId',
+      'eventId',
+      'sortOrder',
+      'gameTypeId',
+      'periodNumber',
+      'eventOwnerTeamId',
+      'eventTypeDescKey',
+      'situationCode'
     ),
-    "calculate_expected_goals"
+    'calculate_expected_goals'
   )
-
   invisible(NULL)
 }
 
+#' Fill goalie-against fallback columns
+#'
+#' `.xg_fill_goalie_against_fallback()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param play_by_play data.frame play-by-play input
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_fill_goalie_against_fallback <- function(play_by_play) {
-  if ("goalieInNetId" %in% names(play_by_play)) {
+  if ('goalieInNetId' %in% names(play_by_play)) {
     goalie_in_net <- suppressWarnings(as.integer(play_by_play$goalieInNetId))
-    if ("goaliePlayerIdAgainst" %in% names(play_by_play)) {
+    if ('goaliePlayerIdAgainst' %in% names(play_by_play)) {
       goalie_against <- suppressWarnings(as.integer(play_by_play$goaliePlayerIdAgainst))
       goalie_in_net[is.na(goalie_in_net)] <- goalie_against[is.na(goalie_in_net)]
       play_by_play$goaliePlayerIdAgainst <- goalie_in_net
@@ -168,9 +733,16 @@ calculate_xG <- function(play_by_play, model = NULL) {
   play_by_play
 }
 
+#' Identify required xG shift columns
+#'
+#' `.xg_required_shift_cols()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param play_by_play data.frame play-by-play input
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_required_shift_cols <- function(play_by_play) {
   id_cols <- grep(
-    "^(?:home|away)Skater[0-9]+PlayerId$|^skater[0-9]+PlayerId(?:For|Against)$",
+    '^(?:home|away)Skater[0-9]+PlayerId$|^skater[0-9]+PlayerId(?:For|Against)$',
     names(play_by_play),
     value = TRUE
   )
@@ -182,21 +754,27 @@ calculate_xG <- function(play_by_play, model = NULL) {
     return(character())
   }
   c(
-    paste0("skater", seq_len(slot_count), "SecondsElapsedInShiftFor"),
-    paste0("skater", seq_len(slot_count), "SecondsElapsedInShiftAgainst"),
-    paste0("skater", seq_len(slot_count), "SecondsElapsedInPeriodSinceLastShiftFor"),
-    paste0("skater", seq_len(slot_count), "SecondsElapsedInPeriodSinceLastShiftAgainst")
+    paste0('skater', seq_len(slot_count), 'SecondsElapsedInShiftFor'),
+    paste0('skater', seq_len(slot_count), 'SecondsElapsedInShiftAgainst'),
+    paste0('skater', seq_len(slot_count), 'SecondsElapsedInPeriodSinceLastShiftFor'),
+    paste0('skater', seq_len(slot_count), 'SecondsElapsedInPeriodSinceLastShiftAgainst')
   )
 }
 
+#' Fetch shift data for xG features
+#'
+#' `.xg_fetch_shift_data()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param game_ids integer game ID vector
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_fetch_shift_data <- function(game_ids) {
   game_ids <- sort(unique(as.integer(game_ids[!is.na(game_ids)])))
   if (!length(game_ids)) {
     return(data.frame())
   }
-
   if (length(game_ids) <= 4L) {
-    out <- vector("list", length(game_ids))
+    out <- vector('list', length(game_ids))
     for (i in seq_along(game_ids)) {
       out[[i]] <- tryCatch(
         shift_chart(game_ids[[i]]),
@@ -212,15 +790,14 @@ calculate_xG <- function(play_by_play, model = NULL) {
     }
     return(do.call(rbind, out))
   }
-
   season_ids <- sort(unique(game_ids %/% 1e6 * 1e4 + game_ids %/% 1e6 + 1L))
-  out <- vector("list", length(season_ids))
+  out <- vector('list', length(season_ids))
   for (i in seq_along(season_ids)) {
     sc <- tryCatch(
       shift_charts(season_ids[[i]]),
       error = function(e) data.frame()
     )
-    if (is.data.frame(sc) && nrow(sc) > 0L && "gameId" %in% names(sc)) {
+    if (is.data.frame(sc) && nrow(sc) > 0L && 'gameId' %in% names(sc)) {
       sc <- sc[sc$gameId %in% game_ids, , drop = FALSE]
     }
     out[[i]] <- sc
@@ -236,45 +813,48 @@ calculate_xG <- function(play_by_play, model = NULL) {
   }
 }
 
+#' Prepare play-by-play for xG scoring
+#'
+#' `.xg_prepare_play_by_play()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param play_by_play data.frame play-by-play input
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_prepare_play_by_play <- function(play_by_play) {
   .xg_require_current_public_schema(play_by_play)
   pbp <- .xg_fill_goalie_against_fallback(play_by_play)
-
-  if (!("isHome" %in% names(pbp))) {
+  if (!('isHome' %in% names(pbp))) {
     pbp <- .flag_is_home(pbp)
   }
-
   state_cols <- c(
-    "isEmptyNetFor",
-    "isEmptyNetAgainst",
-    "skaterCountFor",
-    "skaterCountAgainst",
-    "manDifferential",
-    "strengthState"
+    'isEmptyNetFor',
+    'isEmptyNetAgainst',
+    'skaterCountFor',
+    'skaterCountAgainst',
+    'manDifferential',
+    'strengthState'
   )
   if (!all(state_cols %in% names(pbp))) {
     pbp <- .strip_situation_code(pbp)
   }
-
   need_context <- !all(c(
-    "isRush",
-    "isRebound",
-    "goalsFor",
-    "goalsAgainst",
-    "shotsFor",
-    "shotsAgainst",
-    "shotDifferential",
-    "fenwickFor",
-    "fenwickAgainst",
-    "fenwickDifferential",
-    "corsiFor",
-    "corsiAgainst",
-    "corsiDifferential"
+    'isRush',
+    'isRebound',
+    'goalsFor',
+    'goalsAgainst',
+    'shotsFor',
+    'shotsAgainst',
+    'shotDifferential',
+    'fenwickFor',
+    'fenwickAgainst',
+    'fenwickDifferential',
+    'corsiFor',
+    'corsiAgainst',
+    'corsiDifferential'
   ) %in% names(pbp))
   if (need_context) {
     pbp <- .apply_shot_context(pbp)
   }
-
   shift_cols <- .xg_required_shift_cols(pbp)
   if (length(shift_cols) && !all(shift_cols %in% names(pbp))) {
     shifts <- .xg_fetch_shift_data(pbp$gameId)
@@ -285,56 +865,77 @@ calculate_xG <- function(play_by_play, model = NULL) {
       )
     }
   }
-
   if (!all(.pbp_delta_public_cols() %in% names(pbp))) {
     pbp <- add_deltas(pbp)
   }
-
   if (!all(c(
-    "shooterHeight",
-    "shooterWeight",
-    "shooterHandCode",
-    "shooterPositionCode",
-    "shooterAge"
+    'shooterHeight',
+    'shooterWeight',
+    'shooterHandCode',
+    'shooterPositionCode',
+    'shooterAge'
   ) %in% names(pbp))) {
     pbp <- add_shooter_biometrics(pbp)
   }
-
   if (!all(c(
-    "goalieHeight",
-    "goalieWeight",
-    "goalieHandCode",
-    "goalieAge"
+    'goalieHeight',
+    'goalieWeight',
+    'goalieHandCode',
+    'goalieAge'
   ) %in% names(pbp))) {
     pbp <- add_goalie_biometrics(pbp)
   }
-
   .xg_fill_goalie_against_fallback(pbp)
 }
 
+#' Normalize xG shot type
+#'
+#' `.xg_normalize_shot_type()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param x vector input
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_normalize_shot_type <- function(x) {
   x <- tolower(trimws(as.character(x)))
-  keep <- c("backhand", "deflected", "slap", "snap", "tip-in", "wrist")
-  ifelse(!is.na(x) & x %in% keep, x, "other")
+  keep <- c('backhand', 'deflected', 'slap', 'snap', 'tip-in', 'wrist')
+  ifelse(!is.na(x) & x %in% keep, x, 'other')
 }
 
+#' Normalize xG missed-shot reason
+#'
+#' `.xg_normalize_missed_reason()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param x vector input
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_normalize_missed_reason <- function(x) {
   x <- tolower(trimws(as.character(x)))
-  out <- rep("other", length(x))
+  out <- rep('other', length(x))
   out[!is.na(x) & x %in% c(
-    "goalpost", "hit-left-post", "hit-right-post", "hit-crossbar"
-  )] <- "post"
-  out[!is.na(x) & x %in% c("over-net", "above-crossbar")] <- "high"
+    'goalpost', 'hit-left-post', 'hit-right-post', 'hit-crossbar'
+  )] <- 'post'
+  out[!is.na(x) & x %in% c('over-net', 'above-crossbar')] <- 'high'
   out[!is.na(x) & x %in% c(
-    "wide-of-net",
-    "high-and-wide-left",
-    "high-and-wide-right",
-    "wide-left",
-    "wide-right"
-  )] <- "wide"
+    'wide-of-net',
+    'high-and-wide-left',
+    'high-and-wide-right',
+    'wide-left',
+    'wide-right'
+  )] <- 'wide'
   out
 }
 
+#' Build previous event type key
+#'
+#' `.xg_make_type_desc_key_prev()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param type_desc_key_prev character previous event type keys
+#' @param reason_prev character previous missed-shot reasons
+#' @param shot_type_prev character previous shot types
+#' @param event_owner_team_id_prev integer previous event owner team IDs
+#' @param event_owner_team_id integer current event owner team IDs
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_make_type_desc_key_prev <- function(
   type_desc_key_prev,
   reason_prev,
@@ -350,50 +951,51 @@ calculate_xG <- function(play_by_play, model = NULL) {
   is_for <- !is.na(event_owner_team_id_prev) &
     !is.na(event_owner_team_id) &
     event_owner_team_id_prev == event_owner_team_id
-
-  idx <- !is.na(prev_type) & prev_type == "faceoff" & is_for
-  out[idx] <- "won-faceoff"
-  idx <- !is.na(prev_type) & prev_type == "faceoff" & !is_for
-  out[idx] <- "lost-faceoff"
-
-  idx <- !is.na(prev_type) & prev_type == "shot-on-goal" & is_for
-  out[idx] <- paste0(shot_type_prev[idx], "-shot-on-goal-for")
-  idx <- !is.na(prev_type) & prev_type == "shot-on-goal" & !is_for
-  out[idx] <- paste0(shot_type_prev[idx], "-shot-on-goal-against")
-
-  idx <- !is.na(prev_type) & prev_type == "hit" & is_for
-  out[idx] <- "given-hit"
-  idx <- !is.na(prev_type) & prev_type == "hit" & !is_for
-  out[idx] <- "taken-hit"
-
-  idx <- !is.na(prev_type) & prev_type == "blocked-shot" & is_for
-  out[idx] <- "blocked-shot-for"
-  idx <- !is.na(prev_type) & prev_type == "blocked-shot" & !is_for
-  out[idx] <- "blocked-shot-against"
-
-  idx <- !is.na(prev_type) & prev_type == "giveaway" & is_for
-  out[idx] <- "giveaway-for"
-  idx <- !is.na(prev_type) & prev_type == "giveaway" & !is_for
-  out[idx] <- "giveaway-against"
-
-  idx <- !is.na(prev_type) & prev_type == "takeaway" & is_for
-  out[idx] <- "takeaway-for"
-  idx <- !is.na(prev_type) & prev_type == "takeaway" & !is_for
-  out[idx] <- "takeaway-against"
-
-  idx <- !is.na(prev_type) & prev_type == "missed-shot" & is_for
-  out[idx] <- paste0(reason_prev[idx], "-missed-shot-for")
-  idx <- !is.na(prev_type) & prev_type == "missed-shot" & !is_for
-  out[idx] <- paste0(reason_prev[idx], "-missed-shot-against")
-
+  is_for[is.na(is_for)] <- FALSE
+  idx <- !is.na(prev_type) & prev_type == 'faceoff' & is_for
+  out[idx] <- 'won-faceoff'
+  idx <- !is.na(prev_type) & prev_type == 'faceoff' & !is_for
+  out[idx] <- 'lost-faceoff'
+  idx <- !is.na(prev_type) & prev_type == 'shot-on-goal' & is_for
+  out[idx] <- paste0(shot_type_prev[idx], '-shot-on-goal-for')
+  idx <- !is.na(prev_type) & prev_type == 'shot-on-goal' & !is_for
+  out[idx] <- paste0(shot_type_prev[idx], '-shot-on-goal-against')
+  idx <- !is.na(prev_type) & prev_type == 'hit' & is_for
+  out[idx] <- 'given-hit'
+  idx <- !is.na(prev_type) & prev_type == 'hit' & !is_for
+  out[idx] <- 'taken-hit'
+  idx <- !is.na(prev_type) & prev_type == 'blocked-shot' & is_for
+  out[idx] <- 'blocked-shot-for'
+  idx <- !is.na(prev_type) & prev_type == 'blocked-shot' & !is_for
+  out[idx] <- 'blocked-shot-against'
+  idx <- !is.na(prev_type) & prev_type == 'giveaway' & is_for
+  out[idx] <- 'giveaway-for'
+  idx <- !is.na(prev_type) & prev_type == 'giveaway' & !is_for
+  out[idx] <- 'giveaway-against'
+  idx <- !is.na(prev_type) & prev_type == 'takeaway' & is_for
+  out[idx] <- 'takeaway-for'
+  idx <- !is.na(prev_type) & prev_type == 'takeaway' & !is_for
+  out[idx] <- 'takeaway-against'
+  idx <- !is.na(prev_type) & prev_type == 'missed-shot' & is_for
+  out[idx] <- paste0(reason_prev[idx], '-missed-shot-for')
+  idx <- !is.na(prev_type) & prev_type == 'missed-shot' & !is_for
+  out[idx] <- paste0(reason_prev[idx], '-missed-shot-against')
   other <- is.na(out) & !is.na(prev_type)
   out[other] <- prev_type[other]
   out
 }
 
+#' Extract skater slot indices
+#'
+#' `.xg_extract_slot_indices()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param data data.frame feature input
+#' @param suffix character skater-slot column suffix
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_extract_slot_indices <- function(data, suffix) {
   matches <- regexec(
-    paste0("^skater([0-9]+)", suffix, "$"),
+    paste0('^skater([0-9]+)', suffix, '$'),
     names(data)
   )
   vals <- regmatches(names(data), matches)
@@ -410,26 +1012,42 @@ calculate_xG <- function(play_by_play, model = NULL) {
   sort(unique(idx[!is.na(idx)]))
 }
 
-.xg_build_skater_matrix <- function(data, suffix, mode = "numeric") {
+#' Build skater-slot matrix
+#'
+#' `.xg_build_skater_matrix()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param data data.frame feature input
+#' @param suffix character skater-slot column suffix
+#' @param mode character matrix storage mode
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_build_skater_matrix <- function(data, suffix, mode = 'numeric') {
   idx <- .xg_extract_slot_indices(data, suffix)
   if (!length(idx)) {
     out <- matrix(numeric(0), nrow = nrow(data), ncol = 0L)
     storage.mode(out) <- mode
     return(out)
   }
-  cols <- paste0("skater", idx, suffix)
+  cols <- paste0('skater', idx, suffix)
   out <- matrix(NA_real_, nrow = nrow(data), ncol = length(cols))
   for (j in seq_along(cols)) {
     if (cols[[j]] %in% names(data)) {
       out[, j] <- suppressWarnings(as.numeric(data[[cols[[j]]]]))
     }
   }
-  if (identical(mode, "integer")) {
-    storage.mode(out) <- "integer"
+  if (identical(mode, 'integer')) {
+    storage.mode(out) <- 'integer'
   }
   out
 }
 
+#' Compute row minimums with missing values
+#'
+#' `.xg_row_min()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param mat numeric matrix
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_row_min <- function(mat) {
   n <- nrow(mat)
   if (!ncol(mat)) {
@@ -447,6 +1065,13 @@ calculate_xG <- function(play_by_play, model = NULL) {
   out
 }
 
+#' Compute row maximums with missing values
+#'
+#' `.xg_row_max()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param mat numeric matrix
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_row_max <- function(mat) {
   n <- nrow(mat)
   if (!ncol(mat)) {
@@ -464,6 +1089,13 @@ calculate_xG <- function(play_by_play, model = NULL) {
   out
 }
 
+#' Compute row means with missing values
+#'
+#' `.xg_row_mean()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param mat numeric matrix
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_row_mean <- function(mat) {
   if (!ncol(mat)) {
     return(rep(NA_real_, nrow(mat)))
@@ -475,6 +1107,38 @@ calculate_xG <- function(play_by_play, model = NULL) {
   out
 }
 
+#' Compute row medians with missing values
+#'
+#' `.xg_row_median()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param mat numeric matrix
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_row_median <- function(mat) {
+  n <- nrow(mat)
+  if (!ncol(mat)) {
+    return(rep(NA_real_, n))
+  }
+  out <- rep(NA_real_, n)
+  for (i in seq_len(n)) {
+    values <- mat[i, ]
+    values <- values[!is.na(values)]
+    if (length(values)) {
+      out[[i]] <- stats::median(values)
+    }
+  }
+  out
+}
+
+#' Extract matched skater-slot value
+#'
+#' `.xg_extract_matched_value()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param id_mat integer skater ID matrix
+#' @param value_mat numeric skater value matrix
+#' @param player_id integer player ID vector
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_extract_matched_value <- function(id_mat, value_mat, player_id) {
   n <- nrow(id_mat)
   out <- rep(NA_real_, n)
@@ -494,6 +1158,13 @@ calculate_xG <- function(play_by_play, model = NULL) {
   out
 }
 
+#' Coerce xG feature to logical
+#'
+#' `.xg_to_logical()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param x vector input
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_to_logical <- function(x) {
   if (is.logical(x)) {
     return(x)
@@ -505,148 +1176,260 @@ calculate_xG <- function(play_by_play, model = NULL) {
   }
   x <- as.character(x)
   out <- rep(NA, length(x))
-  out[!is.na(x) & x %in% c("TRUE", "T", "true", "1", "yes", "YES")] <- TRUE
-  out[!is.na(x) & x %in% c("FALSE", "F", "false", "0", "no", "NO")] <- FALSE
+  out[!is.na(x) & x %in% c('TRUE', 'T', 'true', '1', 'yes', 'YES')] <- TRUE
+  out[!is.na(x) & x %in% c('FALSE', 'F', 'false', '0', 'no', 'NO')] <- FALSE
   out
 }
 
+#' Compute xG percentile rank
+#'
+#' `.xg_percent_rank()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param x vector input
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_percent_rank <- function(x) {
+  x <- suppressWarnings(as.numeric(x))
+  out <- rep(NA_real_, length(x))
+  ok <- !is.na(x)
+  if (sum(ok) <= 1L) {
+    out[ok] <- 0
+    return(out)
+  }
+  out[ok] <- (rank(x[ok], ties.method = 'min') - 1) / (sum(ok) - 1L)
+  out
+}
+
+#' Flag slot shots
+#'
+#' `.xg_is_slot_shot()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param x_coord_norm numeric normalized x-coordinate vector
+#' @param abs_y_coord_norm numeric absolute normalized y-coordinate vector
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_is_slot_shot <- function(x_coord_norm, abs_y_coord_norm) {
+  !is.na(x_coord_norm) &
+    !is.na(abs_y_coord_norm) &
+    x_coord_norm >= 54 &
+    x_coord_norm <= 89 &
+    abs_y_coord_norm <= 22
+}
+
+#' Flag inner-slot shots
+#'
+#' `.xg_is_inner_slot_shot()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param x_coord_norm numeric normalized x-coordinate vector
+#' @param abs_y_coord_norm numeric absolute normalized y-coordinate vector
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_is_inner_slot_shot <- function(x_coord_norm, abs_y_coord_norm) {
+  !is.na(x_coord_norm) &
+    !is.na(abs_y_coord_norm) &
+    x_coord_norm >= 69 &
+    x_coord_norm <= 89 &
+    abs_y_coord_norm <= 12
+}
+
+#' Flag net-front shots
+#'
+#' `.xg_is_net_front_shot()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param x_coord_norm numeric normalized x-coordinate vector
+#' @param abs_y_coord_norm numeric absolute normalized y-coordinate vector
+#' @returns Internal helper output.
+#' @keywords internal
+.xg_is_net_front_shot <- function(x_coord_norm, abs_y_coord_norm) {
+  !is.na(x_coord_norm) &
+    !is.na(abs_y_coord_norm) &
+    x_coord_norm >= 82 &
+    x_coord_norm <= 89 &
+    abs_y_coord_norm <= 8
+}
+
+#' Build xG model frame
+#'
+#' `.xg_build_model_frame()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param shots data.frame shot rows
+#' @param play_by_play data.frame play-by-play input
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_build_model_frame <- function(shots, play_by_play) {
   shots <- .xg_fill_goalie_against_fallback(shots)
   play_by_play <- .xg_fill_goalie_against_fallback(play_by_play)
   n <- nrow(shots)
-
-  prev_keys <- if ("eventIdPrev" %in% names(shots)) {
-    paste(shots$gameId, shots$eventIdPrev, sep = ":")
+  prev_keys <- if ('eventIdPrev' %in% names(shots)) {
+    paste(shots$gameId, shots$eventIdPrev, sep = ':')
   } else {
     rep(NA_character_, n)
   }
-  cur_keys <- paste(play_by_play$gameId, play_by_play$eventId, sep = ":")
+  cur_keys <- paste(play_by_play$gameId, play_by_play$eventId, sep = ':')
   prev_idx <- match(prev_keys, cur_keys)
-
-  shot_type_prev <- if ("shotType" %in% names(play_by_play)) {
+  prev_type <- if ('eventTypeDescKey' %in% names(play_by_play)) {
+    play_by_play$eventTypeDescKey[prev_idx]
+  } else {
+    rep(NA_character_, n)
+  }
+  reason_prev <- if ('reason' %in% names(play_by_play)) {
+    play_by_play$reason[prev_idx]
+  } else {
+    rep(NA_character_, n)
+  }
+  event_owner_team_id_prev <- if ('eventOwnerTeamId' %in% names(play_by_play)) {
+    play_by_play$eventOwnerTeamId[prev_idx]
+  } else {
+    rep(NA_integer_, n)
+  }
+  shot_type_prev <- if ('shotType' %in% names(play_by_play)) {
     .xg_normalize_shot_type(play_by_play$shotType[prev_idx])
   } else {
-    rep("other", n)
+    rep('other', n)
   }
-
-  shooting_player_id <- if ("shootingPlayerId" %in% names(shots)) {
+  missed_reason_prev <- .xg_normalize_missed_reason(reason_prev)
+  prev_event_owner_same_team <- !is.na(event_owner_team_id_prev) &
+    !is.na(shots$eventOwnerTeamId) &
+    event_owner_team_id_prev == shots$eventOwnerTeamId
+  shooting_player_id <- if ('shootingPlayerId' %in% names(shots)) {
     suppressWarnings(as.integer(shots$shootingPlayerId))
   } else {
     rep(NA_integer_, n)
   }
-  if ("scoringPlayerId" %in% names(shots)) {
+  if ('scoringPlayerId' %in% names(shots)) {
     use_scoring <- is.na(shooting_player_id)
     shooting_player_id[use_scoring] <- suppressWarnings(
       as.integer(shots$scoringPlayerId[use_scoring])
     )
   }
-
-  if (!("gameTypeId" %in% names(shots)) && "gameId" %in% names(shots)) {
+  if (!('gameTypeId' %in% names(shots)) && 'gameId' %in% names(shots)) {
     shots$gameTypeId <- shots$gameId %/% 1e4 %% 1e2
   }
-
-  shot_type <- if ("shotType" %in% names(shots)) {
+  shot_type <- if ('shotType' %in% names(shots)) {
     shots$shotType
   } else {
     rep(NA_character_, n)
   }
-  period_type <- if ("periodType" %in% names(shots)) {
+  period_type <- if ('periodType' %in% names(shots)) {
     shots$periodType
   } else {
     rep(NA_character_, n)
   }
-  x_coord_norm <- if ("xCoordNorm" %in% names(shots)) {
+  x_coord_norm <- if ('xCoordNorm' %in% names(shots)) {
     suppressWarnings(as.numeric(shots$xCoordNorm))
   } else {
     rep(NA_real_, n)
   }
-  y_coord_norm <- if ("yCoordNorm" %in% names(shots)) {
+  y_coord_norm <- if ('yCoordNorm' %in% names(shots)) {
     suppressWarnings(as.numeric(shots$yCoordNorm))
   } else {
     rep(NA_real_, n)
   }
-  d_y_coord_norm <- if ("dYCoordNorm" %in% names(shots)) {
+  d_y_coord_norm <- if ('dYCoordNorm' %in% names(shots)) {
     suppressWarnings(as.numeric(shots$dYCoordNorm))
   } else {
     rep(NA_real_, n)
   }
-
   shots$shotType <- .xg_normalize_shot_type(shot_type)
   shots$typeDescKeyPrev <- .xg_make_type_desc_key_prev(
-    type_desc_key_prev = play_by_play$eventTypeDescKey[prev_idx],
-    reason_prev = play_by_play$reason[prev_idx],
+    type_desc_key_prev = prev_type,
+    reason_prev = reason_prev,
     shot_type_prev = shot_type_prev,
-    event_owner_team_id_prev = play_by_play$eventOwnerTeamId[prev_idx],
+    event_owner_team_id_prev = event_owner_team_id_prev,
     event_owner_team_id = shots$eventOwnerTeamId
   )
+  shots$prevEventOwnerSameTeam <- prev_event_owner_same_team
+  shots$prevShotType <- ifelse(
+    !is.na(prev_type) & prev_type %in% c('shot-on-goal', 'goal'),
+    shot_type_prev,
+    NA_character_
+  )
+  shots$prevMissedReason <- ifelse(
+    !is.na(prev_type) & prev_type == 'missed-shot',
+    missed_reason_prev,
+    NA_character_
+  )
   shots$shootingPlayerId <- shooting_player_id
-
   is_empty_for <- .xg_to_logical(
-    if ("isEmptyNetFor" %in% names(shots)) shots$isEmptyNetFor else rep(NA, n)
+    if ('isEmptyNetFor' %in% names(shots)) shots$isEmptyNetFor else rep(NA, n)
   )
   is_empty_against <- .xg_to_logical(
-    if ("isEmptyNetAgainst" %in% names(shots)) shots$isEmptyNetAgainst else rep(NA, n)
+    if ('isEmptyNetAgainst' %in% names(shots)) shots$isEmptyNetAgainst else rep(NA, n)
   )
   is_empty_for[is.na(is_empty_for)] <- FALSE
   is_empty_against[is.na(is_empty_against)] <- FALSE
   shots$isEmptyNetFor <- is_empty_for
   shots$isEmptyNetAgainst <- is_empty_against
+  shots$skaterCountFor <- suppressWarnings(as.integer(shots$skaterCountFor))
+  shots$skaterCountAgainst <- suppressWarnings(as.integer(shots$skaterCountAgainst))
+  shots$manDifferential <- shots$skaterCountFor - shots$skaterCountAgainst
   shots$isPlayoff <- !is.na(shots$gameTypeId) & shots$gameTypeId == 3L
+  shots$periodType <- as.character(period_type)
   shots$isOvertime <- !is.na(period_type) &
-    as.character(period_type) == "OT"
+    as.character(period_type) == 'OT'
   shots$xCoordNorm <- x_coord_norm
   shots$yCoordNorm <- y_coord_norm
+  shots$absYCoordNorm <- abs(y_coord_norm)
   shots$dYCoordNorm <- d_y_coord_norm
   shots$isBehindNet <- !is.na(x_coord_norm) & x_coord_norm >= 89
+  shots$isSlot <- .xg_is_slot_shot(x_coord_norm, shots$absYCoordNorm)
+  shots$isInnerSlot <- .xg_is_inner_slot_shot(x_coord_norm, shots$absYCoordNorm)
+  shots$isNetFront <- .xg_is_net_front_shot(x_coord_norm, shots$absYCoordNorm)
   y_prev <- y_coord_norm - d_y_coord_norm
   shots$crossedRoyalRoad <- !is.na(y_coord_norm) &
     !is.na(y_prev) &
     y_coord_norm * y_prev < 0
-
-  shots$zoneCode <- if ("zoneCode" %in% names(shots)) {
+  shots$seasonProgress <- if ('secondsElapsedInGame' %in% names(shots)) {
+    .xg_percent_rank(shots$secondsElapsedInGame)
+  } else {
+    rep(NA_real_, n)
+  }
+  shots$zoneCode <- if ('zoneCode' %in% names(shots)) {
     toupper(as.character(shots$zoneCode))
   } else {
     rep(NA_character_, n)
   }
-  shots$strengthState <- if ("strengthState" %in% names(shots)) {
+  shots$strengthState <- if ('strengthState' %in% names(shots)) {
     tolower(as.character(shots$strengthState))
   } else {
     rep(NA_character_, n)
   }
-  shots$shooterHandCode <- if ("shooterHandCode" %in% names(shots)) {
+  shots$shooterHandCode <- if ('shooterHandCode' %in% names(shots)) {
     toupper(as.character(shots$shooterHandCode))
   } else {
     rep(NA_character_, n)
   }
-  shots$goalieHandCode <- if ("goalieHandCode" %in% names(shots)) {
+  shots$goalieHandCode <- if ('goalieHandCode' %in% names(shots)) {
     toupper(as.character(shots$goalieHandCode))
   } else {
     rep(NA_character_, n)
   }
-  shots$shooterPositionCode <- if ("shooterPositionCode" %in% names(shots)) {
+  shots$shooterPositionCode <- if ('shooterPositionCode' %in% names(shots)) {
     toupper(as.character(shots$shooterPositionCode))
   } else {
     rep(NA_character_, n)
   }
-
-  player_ids_for <- .xg_build_skater_matrix(shots, "PlayerIdFor", "integer")
-  shift_for <- .xg_build_skater_matrix(shots, "SecondsElapsedInShiftFor")
-  shift_against <- .xg_build_skater_matrix(shots, "SecondsElapsedInShiftAgainst")
-  rest_for <- .xg_build_skater_matrix(shots, "SecondsElapsedInPeriodSinceLastShiftFor")
-  rest_against <- .xg_build_skater_matrix(shots, "SecondsElapsedInPeriodSinceLastShiftAgainst")
-
+  player_ids_for <- .xg_build_skater_matrix(shots, 'PlayerIdFor', 'integer')
+  shift_for <- .xg_build_skater_matrix(shots, 'SecondsElapsedInShiftFor')
+  shift_against <- .xg_build_skater_matrix(shots, 'SecondsElapsedInShiftAgainst')
+  rest_for <- .xg_build_skater_matrix(shots, 'SecondsElapsedInPeriodSinceLastShiftFor')
+  rest_against <- .xg_build_skater_matrix(shots, 'SecondsElapsedInPeriodSinceLastShiftAgainst')
   shots$minSecondsElapsedInShiftFor <- .xg_row_min(shift_for)
   shots$maxSecondsElapsedInShiftFor <- .xg_row_max(shift_for)
   shots$avgSecondsElapsedInShiftFor <- .xg_row_mean(shift_for)
+  shots$medSecondsElapsedInShiftFor <- .xg_row_median(shift_for)
   shots$minSecondsElapsedInShiftAgainst <- .xg_row_min(shift_against)
   shots$maxSecondsElapsedInShiftAgainst <- .xg_row_max(shift_against)
   shots$avgSecondsElapsedInShiftAgainst <- .xg_row_mean(shift_against)
+  shots$medSecondsElapsedInShiftAgainst <- .xg_row_median(shift_against)
   shots$minSecondsElapsedSinceLastShiftFor <- .xg_row_min(rest_for)
   shots$maxSecondsElapsedSinceLastShiftFor <- .xg_row_max(rest_for)
   shots$avgSecondsElapsedSinceLastShiftFor <- .xg_row_mean(rest_for)
+  shots$medSecondsElapsedSinceLastShiftFor <- .xg_row_median(rest_for)
   shots$minSecondsElapsedSinceLastShiftAgainst <- .xg_row_min(rest_against)
   shots$maxSecondsElapsedSinceLastShiftAgainst <- .xg_row_max(rest_against)
   shots$avgSecondsElapsedSinceLastShiftAgainst <- .xg_row_mean(rest_against)
+  shots$medSecondsElapsedSinceLastShiftAgainst <- .xg_row_median(rest_against)
   shots$shooterSecondsElapsedInShift <- .xg_extract_matched_value(
     player_ids_for,
     shift_for,
@@ -657,21 +1440,40 @@ calculate_xG <- function(play_by_play, model = NULL) {
     rest_for,
     shots$shootingPlayerId
   )
-
+  shots$shootoutAttemptNumber <- NA_integer_
+  shots$shootoutGoalDifferential <- NA_integer_
+  is_shootout <- !is.na(shots$periodType) & shots$periodType == 'SO'
+  if (any(is_shootout)) {
+    keys <- paste(shots$gameId, shots$periodNumber, sep = ':')
+    for (key in unique(keys[is_shootout])) {
+      idx <- which(is_shootout & keys == key)
+      shots$shootoutAttemptNumber[idx] <- seq_along(idx)
+      if ('goalDifferential' %in% names(shots)) {
+        shots$shootoutGoalDifferential[idx] <- suppressWarnings(
+          as.integer(shots$goalDifferential[idx])
+        )
+      }
+    }
+  }
   shots
 }
 
+#' Partition shots by game state
+#'
+#' `.xg_partition_shots()` is an internal helper for `calculate_expected_goals()`.
+#'
+#' @param shots data.frame shot rows
+#' @returns Internal helper output.
+#' @keywords internal
 .xg_partition_shots <- function(shots) {
   sc <- .normalize_situation_code_for_parse(shots$situationCode)
   is_empty_for <- .xg_to_logical(shots$isEmptyNetFor)
   is_empty_against <- .xg_to_logical(shots$isEmptyNetAgainst)
   is_empty_for[is.na(is_empty_for)] <- FALSE
   is_empty_against[is.na(is_empty_against)] <- FALSE
-
   skater_for <- suppressWarnings(as.integer(shots$skaterCountFor))
   skater_against <- suppressWarnings(as.integer(shots$skaterCountAgainst))
-
-  is_ps <- !is.na(sc) & sc %in% c("1010", "0101")
+  is_ps <- !is.na(sc) & sc %in% c('1010', '0101')
   is_en <- !is_ps & is_empty_against
   is_sd_standard <- (!is_ps &
     !is_en &
@@ -712,121 +1514,12 @@ calculate_xG <- function(play_by_play, model = NULL) {
   is_ev[is.na(is_ev)] <- FALSE
   is_pp[is.na(is_pp)] <- FALSE
   is_sh[is.na(is_sh)] <- FALSE
-
   out <- rep(NA_character_, nrow(shots))
-  out[is_ps] <- "ps"
-  out[is_en] <- "en"
-  out[is_sd] <- "sd"
-  out[is_ev] <- "ev"
-  out[is_pp] <- "pp"
-  out[is_sh] <- "sh"
+  out[is_ps] <- 'ps'
+  out[is_en] <- 'en'
+  out[is_sd] <- 'sd'
+  out[is_ev] <- 'ev'
+  out[is_pp] <- 'pp'
+  out[is_sh] <- 'sh'
   out
-}
-
-.xg_encode_categorical <- function(values, var, spec, n) {
-  if (is.null(values)) {
-    values <- rep(NA, n)
-  }
-
-  logical_var <- var %in% spec$logical_vars
-  if (logical_var) {
-    values <- .xg_to_logical(values)
-    out <- rep(NA_character_, length(values))
-    out[!is.na(values) & values] <- "yes"
-    out[!is.na(values) & !values] <- "no"
-  } else {
-    out <- as.character(values)
-  }
-
-  known <- spec$known_levels[[var]]
-  known <- if (is.null(known)) character() else known
-  allowed <- c(
-    known,
-    if (isTRUE(spec$has_unknown[[var]])) "unknown",
-    if (isTRUE(spec$has_new[[var]])) "new"
-  )
-
-  out[is.na(out) & isTRUE(spec$has_unknown[[var]])] <- "unknown"
-  novel <- !is.na(out) & !(out %in% allowed)
-  if (isTRUE(spec$has_new[[var]])) {
-    out[novel] <- "new"
-  }
-
-  out
-}
-
-.xg_standardize_term <- function(x, term, spec, n) {
-  if (is.null(x)) {
-    x <- rep(NA_real_, n)
-  }
-  if (is.factor(x)) {
-    x <- as.character(x)
-  }
-  if (is.logical(x)) {
-    x <- ifelse(is.na(x), NA_real_, as.numeric(x))
-  } else {
-    x <- suppressWarnings(as.numeric(x))
-  }
-
-  med <- spec$medians[[term]]
-  if (is.null(med) || !length(med) || is.na(med)) {
-    med <- 0
-  }
-  x[is.na(x)] <- med
-
-  center <- spec$normalize_means[[term]]
-  scale <- spec$normalize_sds[[term]]
-  if (is.null(center) || !length(center) || is.na(center)) {
-    center <- 0
-  }
-  if (is.null(scale) || !length(scale) || !is.finite(scale) || scale == 0) {
-    return(rep(0, n))
-  }
-  (x - center) / scale
-}
-
-.xg_score_partition <- function(df, spec) {
-  n <- nrow(df)
-  if (!n) {
-    return(numeric(0))
-  }
-
-  coeffs <- spec$coefficients
-  eta <- rep(unname(coeffs[["(Intercept)"]]), n)
-
-  if (length(spec$raw_terms)) {
-    for (term in spec$raw_terms) {
-      eta <- eta + coeffs[[term]] * .xg_standardize_term(
-        if (term %in% names(df)) df[[term]] else NULL,
-        term,
-        spec,
-        n
-      )
-    }
-  }
-
-  if (length(spec$active_dummy_by_var)) {
-    for (var in names(spec$active_dummy_by_var)) {
-      values <- .xg_encode_categorical(
-        if (var %in% names(df)) df[[var]] else NULL,
-        var,
-        spec,
-        n
-      )
-      terms <- spec$active_dummy_by_var[[var]]
-      for (term in terms) {
-        level <- spec$dummy_term_to_level[[term]]
-        dummy <- as.numeric(values == level)
-        dummy[is.na(dummy)] <- NA_real_
-        eta <- eta + coeffs[[term]] * .xg_standardize_term(
-          dummy,
-          term,
-          spec,
-          n
-        )
-      }
-    }
-  }
-
-  stats::plogis(eta)
 }

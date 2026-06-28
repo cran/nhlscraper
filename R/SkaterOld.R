@@ -1,3 +1,5 @@
+# Deprecated Functions ---------------------------------------------------------
+
 #' Access the skater statistics leaders for a season, game type, and category
 #' 
 #' `get_skater_leaders()` is deprecated. Use [skater_leaders()] instead.
@@ -7,7 +9,6 @@
 #' 'points, 'penaltyMins', 'toi', 'plusMinus', or 'faceoffLeaders'
 #' @returns data.frame with one row per player
 #' @export
-
 get_skater_leaders <- function(
   season    = 'current',
   game_type = '',
@@ -43,7 +44,6 @@ get_skater_leaders <- function(
 #'
 #' @returns data.frame with one row per player
 #' @export
-
 get_skater_milestones <- function() {
   .Deprecated(
     new     = 'skater_milestones()',
@@ -61,7 +61,6 @@ get_skater_milestones <- function() {
 #' `get_skaters()` is defunct. Use [players()] instead.
 #'
 #' @export
-
 get_skaters <- function() {
   .Defunct(
     new     = 'players()',
@@ -79,7 +78,6 @@ get_skaters <- function() {
 #' [skater_game_report()] instead.
 #' 
 #' @export
-
 get_skater_statistics <- function() {
   .Defunct(
     new     = 'skater_season_report()',

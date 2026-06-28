@@ -1,3 +1,5 @@
+# Deprecated Functions ---------------------------------------------------------
+
 #' Access the playoff bracket for a season
 #' 
 #' `get_bracket()` is deprecated. Use [bracket()] instead.
@@ -5,7 +7,6 @@
 #' @inheritParams roster
 #' @returns data.frame with one row per series
 #' @export
-
 get_bracket <- function(season = season_now()) {
   .Deprecated(
     new     = 'bracket()',
@@ -25,7 +26,6 @@ get_bracket <- function(season = season_now()) {
 #' @inheritParams series_schedule
 #' @returns data.frame with one row per game
 #' @export
-
 get_series_schedule <- function(season = season_now(), series = 'a') {
   .Deprecated(
     new     = 'series_schedule()',
@@ -43,7 +43,6 @@ get_series_schedule <- function(season = season_now(), series = 'a') {
 #' `get_series()` is defunct.
 #' 
 #' @export
-
 get_series <- function() {
   .Defunct(
     msg = paste(

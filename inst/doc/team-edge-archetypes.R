@@ -3,9 +3,9 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = '#>',
   fig.align = 'center',
-  out.width = '90%',
+  out.width = '92%',
   fig.width = 7,
-  fig.height = 4.5
+  fig.height = 4.8
 )
 
 make_table <- function(x, caption, digits = 3) {
@@ -13,9 +13,9 @@ make_table <- function(x, caption, digits = 3) {
 }
 
 ## ----leaders------------------------------------------------------------------
-# Pull 2024-25 team EDGE leaders.
+# Pull team EDGE leaders.
 edge_leaders <- nhlscraper::team_edge_leaders(
-  season = 20242025,
+  season    = 20242025,
   game_type = 2
 )
 
@@ -52,12 +52,14 @@ leader_table <- data.frame(
 )
 make_table(
   leader_table,
-  caption = 'League-leading 2024-25 team EDGE categories.'
+  caption = 'Selected 2024-25 team EDGE leaders.'
 )
 
 ## ----profiles-----------------------------------------------------------------
-# Define selected teams and robust fetch helpers.
+# Define team set.
 team_ids <- c(CAR = 12, COL = 21, EDM = 22, FLA = 13, WSH = 15)
+
+# Define robust helpers.
 fetch_with_retry <- function(fetch_fun, validator, tries = 3) {
   for (i in seq_len(tries)) {
     value <- try(fetch_fun(), silent = TRUE)
@@ -71,66 +73,72 @@ fetch_with_retry <- function(fetch_fun, validator, tries = 3) {
 valid_df <- function(x, required_cols) {
   is.data.frame(x) && nrow(x) > 0 && all(required_cols %in% names(x))
 }
-extract_name <- function(first_name, last_name) {
-  if (is.na(first_name) || is.na(last_name) || first_name == '' || last_name == '') {
+safe_num <- function(x) {
+  out <- suppressWarnings(as.numeric(x))
+  ifelse(is.na(out), NA_real_, out)
+}
+safe_name <- function(first_name, last_name) {
+  if (
+    is.na(first_name) ||
+      is.na(last_name) ||
+      first_name == '' ||
+      last_name == ''
+  ) {
     return(NA_character_)
   }
   paste(first_name, last_name)
 }
+safe_summary_num <- function(x, path) {
+  value <- tryCatch({
+    for (nm in path) x <- x[[nm]]
+    x
+  }, error = function(e) NA_real_)
+  safe_num(value)
+}
+
+# Build one profile row.
 build_team_profile <- function(team_code, team_id) {
   team_summary <- fetch_with_retry(
     function() nhlscraper::team_edge_summary(
-      team = team_id,
-      season = 20242025,
+      team      = team_id,
+      season    = 20242025,
       game_type = 2
     ),
-    function(x) is.list(x) && 'team' %in% names(x)
+    function(x) is.list(x)
   )
   zone_rows <- fetch_with_retry(
     function() nhlscraper::team_edge_zone_time(
-      team = team_id,
-      season = 20242025,
+      team      = team_id,
+      season    = 20242025,
       game_type = 2,
-      category = 'details'
+      category  = 'details'
     ),
     function(x) valid_df(x, c('strengthCode', 'offensiveZonePctg'))
   )
   skating_rows <- fetch_with_retry(
     function() nhlscraper::team_edge_skating_speed(
-      team = team_id,
-      season = 20242025,
+      team      = team_id,
+      season    = 20242025,
       game_type = 2,
-      category = 'details'
+      category  = 'details'
     ),
-    function(x) {
-      valid_df(x, c(
-        'positionCode',
-        'maxSkatingSpeed.imperial',
-        'burstsOver22.value'
-      ))
-    }
+    function(x) valid_df(x, c('positionCode', 'maxSkatingSpeed.imperial', 'burstsOver22.value'))
   )
   shot_speed_rows <- fetch_with_retry(
     function() nhlscraper::team_edge_shot_speed(
-      team = team_id,
-      season = 20242025,
+      team      = team_id,
+      season    = 20242025,
       game_type = 2,
-      category = 'details'
+      category  = 'details'
     ),
-    function(x) {
-      valid_df(x, c(
-        'position',
-        'topShotSpeed.imperial',
-        'shotAttempts90To100.value'
-      ))
-    }
+    function(x) valid_df(x, c('position', 'topShotSpeed.imperial', 'shotAttempts90To100.value'))
   )
   shot_location_rows <- fetch_with_retry(
     function() nhlscraper::team_edge_shot_location(
-      team = team_id,
-      season = 20242025,
+      team      = team_id,
+      season    = 20242025,
       game_type = 2,
-      category = 'details'
+      category  = 'details'
     ),
     function(x) valid_df(x, c('area', 'sog'))
   )
@@ -142,17 +150,17 @@ build_team_profile <- function(team_code, team_id) {
   ) {
     return(data.frame(
       team = team_code,
-      points = if (is.null(team_summary)) NA_real_ else as.numeric(team_summary[['team']][['points']]),
-      wins = if (is.null(team_summary)) NA_real_ else as.numeric(team_summary[['team']][['wins']]),
+      points = safe_summary_num(team_summary, c('team', 'points')),
+      wins = safe_summary_num(team_summary, c('team', 'wins')),
       offensiveZonePctg = NA_real_,
       maxSkatingSpeed = NA_real_,
       burstsOver22 = NA_real_,
       shotAttemptsOver90 = NA_real_,
       hardestShot = NA_real_,
+      trackedShots = NA_real_,
       interiorShare = NA_real_,
       circleShare = NA_real_,
       pointShare = NA_real_,
-      otherShare = NA_real_,
       fastestSkater = NA_character_,
       hardestShooter = NA_character_,
       stringsAsFactors = FALSE
@@ -183,38 +191,41 @@ build_team_profile <- function(team_code, team_id) {
     'Outside R',
     'Beyond Red Line'
   )
-  total_shots <- sum(shot_location_rows[['sog']])
+  total_shots <- sum(shot_location_rows[['sog']], na.rm = TRUE)
   data.frame(
     team = team_code,
-    points = if (is.null(team_summary)) NA_real_ else as.numeric(team_summary[['team']][['points']]),
-    wins = if (is.null(team_summary)) NA_real_ else as.numeric(team_summary[['team']][['wins']]),
-    offensiveZonePctg = as.numeric(zone_row[['offensiveZonePctg']][1]),
-    maxSkatingSpeed = as.numeric(skating_row[['maxSkatingSpeed.imperial']][1]),
-    burstsOver22 = as.numeric(skating_row[['burstsOver22.value']][1]),
-    shotAttemptsOver90 = as.numeric(
-      shot_speed_row[['shotAttemptsOver100.value']][1] +
-        shot_speed_row[['shotAttempts90To100.value']][1]
+    points = safe_summary_num(team_summary, c('team', 'points')),
+    wins = safe_summary_num(team_summary, c('team', 'wins')),
+    offensiveZonePctg = safe_num(zone_row[['offensiveZonePctg']][1]),
+    maxSkatingSpeed = safe_num(skating_row[['maxSkatingSpeed.imperial']][1]),
+    burstsOver22 = safe_num(skating_row[['burstsOver22.value']][1]),
+    shotAttemptsOver90 = sum(
+      safe_num(shot_speed_row[['shotAttemptsOver100.value']][1]),
+      safe_num(shot_speed_row[['shotAttempts90To100.value']][1]),
+      na.rm = TRUE
     ),
-    hardestShot = as.numeric(shot_speed_row[['topShotSpeed.imperial']][1]),
-    interiorShare = sum(shot_location_rows[['sog']][interior_mask]) / total_shots,
-    circleShare = sum(shot_location_rows[['sog']][circle_mask]) / total_shots,
-    pointShare = sum(shot_location_rows[['sog']][point_mask]) / total_shots,
-    otherShare = sum(shot_location_rows[['sog']][!(interior_mask | circle_mask | point_mask)]) / total_shots,
-    fastestSkater = extract_name(
+    hardestShot = safe_num(shot_speed_row[['topShotSpeed.imperial']][1]),
+    trackedShots = total_shots,
+    interiorShare = sum(shot_location_rows[['sog']][interior_mask], na.rm = TRUE) / total_shots,
+    circleShare = sum(shot_location_rows[['sog']][circle_mask], na.rm = TRUE) / total_shots,
+    pointShare = sum(shot_location_rows[['sog']][point_mask], na.rm = TRUE) / total_shots,
+    fastestSkater = safe_name(
       skating_row[['maxSkatingSpeed.overlay.player.firstName.default']][1],
       skating_row[['maxSkatingSpeed.overlay.player.lastName.default']][1]
     ),
-    hardestShooter = extract_name(
+    hardestShooter = safe_name(
       shot_speed_row[['topShotSpeed.overlay.player.firstName.default']][1],
       shot_speed_row[['topShotSpeed.overlay.player.lastName.default']][1]
     ),
     stringsAsFactors = FALSE
   )
 }
+
+# Build profile table.
 team_profiles <- Map(
   build_team_profile,
   team_code = names(team_ids),
-  team_id = unname(team_ids)
+  team_id   = unname(team_ids)
 )
 team_profiles <- do.call(rbind, team_profiles)
 rownames(team_profiles) <- NULL
@@ -231,67 +242,83 @@ profile_table <- team_profiles[, c(
 )]
 make_table(
   profile_table,
-  caption = 'Five-team 2024-25 EDGE profile comparison.'
+  caption = 'Five-team 2024-25 EDGE profile comparison.',
+  digits = 3
 )
 
-## ----pace-plot, fig.cap = 'Territorial control and pace look different across elite 2024-25 teams.'----
-# Plot territorial control and burst volume.
-old_par <- graphics::par(no.readonly = TRUE)
-graphics::par(mfrow = c(1, 2), mar = c(5, 7, 3, 1))
-ordered_zone <- team_profiles[order(team_profiles[['offensiveZonePctg']]), ]
-graphics::barplot(
-  ordered_zone[['offensiveZonePctg']],
-  names.arg = ordered_zone[['team']],
-  horiz = TRUE,
-  las = 1,
-  col = '#2a9d8f',
-  border = NA,
-  xlab = 'Offensive-Zone Share'
+## ----scorecard----------------------------------------------------------------
+# Rescale profile metrics within sample.
+rescale01 <- function(x) {
+  rng <- range(x, na.rm = TRUE)
+  if (!all(is.finite(rng)) || diff(rng) == 0) {
+    return(rep(NA_real_, length(x)))
+  }
+  (x - rng[1]) / diff(rng)
+}
+scorecard <- data.frame(
+  team = team_profiles[['team']],
+  territory = rescale01(team_profiles[['offensiveZonePctg']]),
+  pace = rescale01(team_profiles[['burstsOver22']]),
+  shotPower = rescale01(team_profiles[['shotAttemptsOver90']]),
+  interior = rescale01(team_profiles[['interiorShare']]),
+  hardestShot = rescale01(team_profiles[['hardestShot']]),
+  stringsAsFactors = FALSE
 )
-ordered_bursts <- team_profiles[order(team_profiles[['burstsOver22']]), ]
-graphics::barplot(
-  ordered_bursts[['burstsOver22']],
-  names.arg = ordered_bursts[['team']],
-  horiz = TRUE,
-  las = 1,
-  col = '#e76f51',
-  border = NA,
-  xlab = 'Bursts Over 22 MPH'
+make_table(
+  scorecard,
+  caption = 'Within-sample EDGE archetype scores.',
+  digits = 3
 )
-graphics::par(old_par)
 
-## ----shot-mix-plot, fig.cap = 'Shot-geography mix for five elite 2024-25 teams.'----
-# Plot shot mix shares.
+## ----scorecard-plot, fig.cap = 'Within-sample archetype scorecard for five teams.'----
+# Plot archetype scorecard.
+score_matrix <- t(as.matrix(scorecard[, -1]))
+colnames(score_matrix) <- scorecard[['team']]
+graphics::barplot(
+  score_matrix,
+  beside = TRUE,
+  col = c('#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51'),
+  ylim = c(0, 1.35),
+  ylab = 'Within-Sample Score',
+  xlab = 'Team'
+)
+graphics::legend(
+  'top',
+  legend = rownames(score_matrix),
+  fill = c('#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51'),
+  bty = 'n',
+  cex = 0.75,
+  ncol = 3
+)
+
+## ----shot-mix-plot, fig.cap = 'Tracked shot-location mix by team.'------------
+# Plot shot-location mix.
 shot_mix <- t(as.matrix(team_profiles[, c(
   'interiorShare',
   'circleShare',
-  'pointShare',
-  'otherShare'
+  'pointShare'
 )]))
 colnames(shot_mix) <- team_profiles[['team']]
-rownames(shot_mix) <- c(
-  'Interior',
-  'Circles and slot',
-  'Points and perimeter',
-  'Other'
-)
+rownames(shot_mix) <- c('Interior', 'Circles / slot', 'Points / perimeter')
 graphics::barplot(
   shot_mix,
   beside = FALSE,
-  col = c('#1b4332', '#40916c', '#74c69d', '#d8f3dc'),
-  ylim = c(0, 1),
+  col = c('#1b4332', '#52b788', '#b7e4c7'),
+  ylim = c(0, 1.18),
   ylab = 'Share of Tracked Shots',
   xlab = 'Team'
 )
 graphics::legend(
-  'topright',
+  'top',
   legend = rownames(shot_mix),
-  fill = c('#1b4332', '#40916c', '#74c69d', '#d8f3dc'),
-  bty = 'n'
+  fill = c('#1b4332', '#52b788', '#b7e4c7'),
+  bty = 'n',
+  cex = 0.8,
+  horiz = TRUE
 )
 
 ## ----player-table-------------------------------------------------------------
-# Show players behind each team's most extreme speed and shot events.
+# Show players behind extreme traits.
 player_table <- team_profiles[, c(
   'team',
   'fastestSkater',
@@ -301,6 +328,6 @@ player_table <- team_profiles[, c(
 )]
 make_table(
   player_table,
-  caption = "Players behind each team's fastest burst and hardest shot."
+  caption = 'Players behind each team profile.'
 )
 

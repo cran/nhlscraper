@@ -1,6 +1,9 @@
+# ESPNGame Functions ---------------------------------------------------------
+
 #' Access the ESPN games for a season
 #'
-#' `espn_games()` retrieves the ESPN games for a season as a `data.frame` where each row represents ESPN and includes detail on game timing, matchup state, scoring flow, and situational event detail.
+#' `espn_games()` pages ESPN's NHL event index for a season and returns one row
+#' per event containing the ESPN game ID used by the other ESPN wrappers.
 #'
 #' @inheritParams roster
 #'
@@ -8,7 +11,6 @@
 #' @examples
 #' ESPN_games_20242025 <- espn_games(season = 20242025)
 #' @export
-
 espn_games <- function(season = season_now()) {
   tryCatch(
     expr = {
@@ -34,7 +36,7 @@ espn_games <- function(season = season_now()) {
       page       <- 1
       all_events <- list()
       repeat {
-        events <- espn_api(
+        events <- .espn_api(
           path  = 'events',
           query = list(
             lang   = 'en',
@@ -65,7 +67,9 @@ espn_games <- function(season = season_now()) {
 
 #' Access the ESPN summary for a game
 #'
-#' `espn_game_summary()` retrieves the ESPN summary for a game as a nested `list` that separates summary and detail blocks for date/season filtering windows and chronological context, venue/location geography and regional metadata, and playoff-series progression, round status, and series leverage.
+#' `espn_game_summary()` returns ESPN's competition summary for one game after
+#' dropping large availability/link/detail blocks, leaving the compact game,
+#' competitor, venue, date, format, and series fields exposed by the core API.
 #'
 #' @param game integer ID (e.g., 401777460); see [espn_games()] for 
 #' reference
@@ -74,11 +78,10 @@ espn_games <- function(season = season_now()) {
 #' @examples
 #' ESPN_summary_SCF_20242025 <- espn_game_summary(game = 401777460)
 #' @export
-
 espn_game_summary <- function(game = 401777460) {
   tryCatch(
     expr = {
-      game  <- espn_api(
+      game  <- .espn_api(
         path  = sprintf('events/%s/competitions/%s', game, game),
         type  = 'c'
       )
@@ -129,7 +132,9 @@ espn_game_summary <- function(game = 401777460) {
 
 #' Access the ESPN play-by-play for a game
 #'
-#' `espn_play_by_play()` retrieves the ESPN play-by-play for a game as a `data.frame` where each row represents event and includes detail on game timeline state, period/clock progression, and matchup flow, team identity, affiliation, and matchup-side context, and situational splits across home/road, strength state, and overtime/shootout states.
+#' `espn_play_by_play()` returns ESPN's play rows for one game with one row per
+#' event, normalized event IDs, period labels, clock/text fields, team refs, and
+#' coordinate fields when ESPN supplies them.
 #'
 #' @inheritParams espn_game_summary
 #'
@@ -137,11 +142,10 @@ espn_game_summary <- function(game = 401777460) {
 #' @examples
 #' ESPN_pbp_SCF_20242025 <- espn_play_by_play(game = 401777460)
 #' @export
-
 espn_play_by_play <- function(game = 401777460) {
   tryCatch(
     expr = {
-      plays <- espn_api(
+      plays <- .espn_api(
         path  = sprintf('events/%s/competitions/%s/plays', game, game),
         query = list(lang = 'en', region = 'us', limit = 1000),
         type  = 'c'
@@ -151,7 +155,7 @@ espn_play_by_play <- function(game = 401777460) {
       names(plays)[names(plays) == 'coordinate.y'] <- 'yCoord'
       old_names <- names(plays)
       keep_ref <- grepl('(^\\$ref$|\\.\\$ref$)', old_names)
-      new_names <- dot_to_camel(old_names)
+      new_names <- .dot_to_camel(old_names)
       names(plays) <- ifelse(keep_ref, old_names, new_names)
       names(plays)[names(plays) == 'periodNumber'] <- 'period'
       plays
@@ -165,14 +169,15 @@ espn_play_by_play <- function(game = 401777460) {
 
 #' @rdname espn_play_by_play
 #' @export
-
 espn_pbp <- function(game = 401777460) {
   espn_play_by_play(game)
 }
 
 #' Access the ESPN odds for a game
 #'
-#' `espn_game_odds()` retrieves the ESPN odds for a game as a `data.frame` where each row represents provider and includes detail on team identity, affiliation, and matchup-side context plus betting market snapshots with side/total prices and provider variation.
+#' `espn_game_odds()` returns ESPN's odds items for one game with one row per
+#' provider/market entry and camelCase names for nested price, spread, and total
+#' fields.
 #'
 #' @inheritParams espn_game_summary
 #'
@@ -180,17 +185,16 @@ espn_pbp <- function(game = 401777460) {
 #' @examples
 #' ESPN_odds_SCF_20242025 <- espn_game_odds(game = 401777460)
 #' @export
-
 espn_game_odds <- function(game = 401777460) {
   tryCatch(
     expr = {
-      odds <- espn_api(
+      odds <- .espn_api(
         path  = sprintf('events/%s/competitions/%s/odds', game, game),
         type  = 'c'
       )$items
       old_names <- names(odds)
       keep_ref <- grepl('(^\\$ref$|\\.\\$ref$)', old_names)
-      new_names <- dot_to_camel(old_names)
+      new_names <- .dot_to_camel(old_names)
       names(odds) <- ifelse(keep_ref, old_names, new_names)
       odds
     },

@@ -1,15 +1,17 @@
+# Other Functions ---------------------------------------------------------
+
 #' Access the glossary
 #'
-#' `glossary()` retrieves the glossary as a `data.frame` where each row represents terminology and includes detail on reference definitions and rules-framework information.
+#' `glossary()` returns NHL glossary terms with one row per term and normalized
+#' terminology IDs/names.
 #'
 #' @returns data.frame with one row per terminology
 #' @examples
 #' glossary <- glossary()
 #' @export
-
 glossary <- function() {
   tryCatch({
-    terms <- nhl_api(
+    terms <- .nhl_api(
       path = 'en/glossary',
       type = 's'
     )$data
@@ -24,16 +26,16 @@ glossary <- function() {
 
 #' Access all the countries
 #'
-#' `countries()` retrieves all the countries as a `data.frame` where each row represents country and includes detail on reference metadata, regional context, and media availability detail.
+#' `countries()` returns the stats API country catalog with one row per country
+#' and normalized two-/three-letter country fields.
 #'
 #' @returns data.frame with one row per country
 #' @examples
 #' all_countries <- countries()
 #' @export
-
 countries <- function() {
   tryCatch({
-    countries <- nhl_api(
+    countries <- .nhl_api(
       path = 'en/country',
       type = 's'
     )$data
@@ -48,7 +50,8 @@ countries <- function() {
 
 #' Access the location for a zip code
 #'
-#' `location()` retrieves the location for a zip code as a `data.frame` where each row represents team and includes detail on venue/location geography and regional metadata.
+#' `location()` returns the NHL postal lookup result for one ZIP/postal code,
+#' including country, region, and related local-market fields when available.
 #'
 #' @param zip integer (e.g., 48304)
 #'
@@ -56,18 +59,17 @@ countries <- function() {
 #' @examples
 #' Cranbrook_Schools <- location(48304)
 #' @export
-
 location <- function(zip = 10001) {
   tryCatch(
     expr = {
-      location <- nhl_api(
+      location <- .nhl_api(
         path = sprintf('v1/postal-lookup/%s', zip),
         type = 'w'
       )
       location[0, ]
       names(location)[names(location) == 'country'] <- 'countryCode'
-      names(location) <- normalize_locale_names(names(location))
-      names(location) <- normalize_team_abbrev_cols(names(location))
+      names(location) <- .normalize_locale_names(names(location))
+      names(location) <- .normalize_team_abbrev_cols(names(location))
       location
     },
     error = function(e) {
@@ -79,16 +81,17 @@ location <- function(zip = 10001) {
 
 #' Access all the streams
 #'
-#' `streams()` retrieves all the streams as a `data.frame` where each row represents stream and includes detail on reference metadata, regional context, and media availability detail.
+#' `streams()` returns the public "where to watch" payload for the current
+#' region, including broadcast/streaming providers when the endpoint is
+#' available.
 #'
 #' @returns data.frame with one row per stream
 #' @examples
 #' all_streams <- streams()
 #' @export
-
 streams <- function() {
   tryCatch({
-    nhl_api(
+    .nhl_api(
       path = 'v1/where-to-watch',
       type = 'w'
     )
@@ -100,7 +103,8 @@ streams <- function() {
 
 #' Access the NHL Network TV schedule for a date
 #'
-#' `tv_schedule()` retrieves the NHL Network TV schedule for a date as a `data.frame` where each row represents program and includes detail on date/season filtering windows and chronological context.
+#' `tv_schedule()` returns NHL Network broadcast schedule rows for one date,
+#' with one row per program/broadcast item.
 #'
 #' @inheritParams standings
 #'
@@ -108,11 +112,10 @@ streams <- function() {
 #' @examples
 #' tv_schedule_Halloween_2025 <- tv_schedule(date = '2025-10-31')
 #' @export
-
 tv_schedule <- function(date = 'now') {
   tryCatch(
     expr = {
-      nhl_api(
+      .nhl_api(
         path = sprintf('v1/network/tv-schedule/%s', date),
         type = 'w'
       )$broadcasts

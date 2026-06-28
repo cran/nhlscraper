@@ -1,19 +1,22 @@
+# Draft Functions ---------------------------------------------------------
+
 #' Access all the drafts
 #'
-#' `drafts()` retrieves all the drafts as a `data.frame` where each row represents draft and includes detail on venue/location geography and regional metadata.
+#' `drafts()` merges the records draft master and stats draft-round endpoints,
+#' returning one row per draft year with IDs, dates, location, and round
+#' metadata.
 #'
 #' @returns data.frame with one row per draft
 #' @examples
 #' all_drafts <- drafts()
 #' @export
-
 drafts <- function() {
   tryCatch({
-    master <- nhl_api(
+    master <- .nhl_api(
       path = 'draft-master',
       type = 'r'
     )$data
-    rounds <- nhl_api(
+    rounds <- .nhl_api(
       path = 'en/draft',
       type = 's'
     )$data
@@ -33,17 +36,18 @@ drafts <- function() {
 
 #' Access all the draft picks
 #'
-#' `draft_picks()` retrieves all the draft picks as a `data.frame` where each row represents pick and includes detail on team identity, affiliation, and matchup-side context plus player identity, role, handedness, and biographical profile.
+#' `draft_picks()` returns the historical draft-pick table with one row per
+#' pick, including draft year/round/overall slot, team, player, position, and
+#' biographical fields.
 #'
 #' @returns data.frame with one row per pick
 #' @examples
 #' # May take >5s, so skip.
 #' \donttest{all_draft_picks <- draft_picks()}
 #' @export
-
 draft_picks <- function() {
   tryCatch({
-    picks <- nhl_api(
+    picks <- .nhl_api(
       path = 'draft',
       type = 'r'
     )$data
@@ -62,17 +66,18 @@ draft_picks <- function() {
 
 #' Access all the draft prospects
 #'
-#' `draft_prospects()` retrieves all the draft prospects as a `data.frame` where each row represents player and includes detail on player identity, role, handedness, and biographical profile plus broadcast carriage, media availability, and viewing-link metadata.
+#' `draft_prospects()` returns the records-site prospect registry with one row
+#' per prospect and normalized prospect/player IDs, names, birth data, and
+#' profile fields.
 #'
 #' @returns data.frame with one row per player
 #' @examples
 #' # May take >5s, so skip.
 #' \donttest{all_prospects <- draft_prospects()}
 #' @export
-
 draft_prospects <- function() {
   tryCatch({
-    prospects <- nhl_api(
+    prospects <- .nhl_api(
       path = 'draft-prospect',
       type = 'r'
     )$data
@@ -92,7 +97,8 @@ draft_prospects <- function() {
 
 #' Access the draft rankings for a class and category
 #'
-#' `draft_rankings()` retrieves the draft rankings for a class and category as a `data.frame` where each row represents player and includes detail on player identity, role, handedness, and biographical profile plus draft-board context, scouting background, and pick/round progression.
+#' `draft_rankings()` returns NHL Central Scouting rankings for one draft class
+#' and skater/goalie region group, with one row per ranked prospect.
 #'
 #' @param class integer in YYYY (e.g., 2017); see [drafts()] for reference
 #' @param category integer in 1:4 (where 1 = North American Skaters, 
@@ -109,7 +115,6 @@ draft_prospects <- function() {
 #'   category = 2
 #' )
 #' @export
-
 draft_rankings <- function(
   class    = season_now() %% 1e4,
   category = 1
@@ -135,7 +140,7 @@ draft_rankings <- function(
         `intl goalies`           = 4,
         `international goalies`  = 4
       )
-      rankings <- nhl_api(
+      rankings <- .nhl_api(
         path = sprintf('v1/draft/rankings/%s/%s', class, category),
         type = 'w'
       )$rankings
@@ -152,16 +157,16 @@ draft_rankings <- function(
 
 #' Access the draft combine reports
 #'
-#' `combine_reports()` retrieves the draft combine reports as a `data.frame` where each row represents player and includes detail on player identity, role, handedness, and biographical profile.
+#' `combine_reports()` returns draft-combine measurements and test results with
+#' one row per player/event result.
 #'
 #' @returns data.frame with one row per player
 #' @examples
 #' combine_reports <- combine_reports()
 #' @export
-
 combine_reports <- function() {
   tryCatch({
-    reports    <- nhl_api(
+    reports    <- .nhl_api(
       path = 'combine',
       type = 'r'
     )$data
@@ -178,16 +183,16 @@ combine_reports <- function() {
 
 #' Access the draft lottery odds
 #'
-#' `lottery_odds()` retrieves the draft lottery odds as a `data.frame` where each row represents draft lottery and includes detail on draft-cycle evaluation, ranking, and selection tracking detail.
+#' `lottery_odds()` returns historical draft-lottery odds and outcomes by draft
+#' year and lottery slot.
 #'
 #' @returns data.frame with one row per draft lottery
 #' @examples
 #' lottery_odds <- lottery_odds()
 #' @export
-
 lottery_odds <- function() {
   tryCatch({
-    lotteries <- nhl_api(
+    lotteries <- .nhl_api(
       path = 'draft-lottery-odds',
       type = 'r'
     )$data
@@ -202,22 +207,22 @@ lottery_odds <- function() {
 
 #' Access the real-time draft tracker
 #'
-#' `draft_tracker()` retrieves the real-time draft tracker as a `data.frame` where each row represents player and includes detail on team identity, affiliation, and matchup-side context, player identity, role, handedness, and biographical profile, and venue/location geography and regional metadata.
+#' `draft_tracker()` returns the live NHL draft tracker picks for the current
+#' draft, with normalized player, team, round, and pick fields.
 #'
 #' @returns data.frame with one row per player
 #' @examples
 #' draft_tracker <- draft_tracker()
 #' @export
-
 draft_tracker <- function() {
   tryCatch({
-    picks <- nhl_api(
+    picks <- .nhl_api(
       path = 'v1/draft-tracker/picks/now',
       type = 'w'
     )$picks
-    names(picks) <- normalize_locale_names(names(picks))
-    names(picks) <- scope_person_name_cols(names(picks), 'player')
-    names(picks) <- normalize_team_abbrev_cols(names(picks))
+    names(picks) <- .normalize_locale_names(names(picks))
+    names(picks) <- .scope_person_name_cols(names(picks), 'player')
+    names(picks) <- .normalize_team_abbrev_cols(names(picks))
     picks
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
@@ -227,16 +232,16 @@ draft_tracker <- function() {
 
 #' Access all the expansion drafts
 #'
-#' `expansion_drafts()` retrieves all the expansion drafts as a `data.frame` where each row represents expansion draft and includes detail on date/season filtering windows and chronological context plus reference definitions and rules-framework information.
+#' `expansion_drafts()` returns expansion-draft rule records by season, including
+#' the rule text and season identifiers exposed by the records endpoint.
 #'
 #' @returns data.frame with one row per expansion draft
 #' @examples
 #' all_expansion_drafts <- expansion_drafts()
 #' @export
-
 expansion_drafts <- function() {
   tryCatch({
-    drafts    <- nhl_api(
+    drafts    <- .nhl_api(
       path = 'expansion-draft-rules',
       type = 'r'
     )$data
@@ -250,16 +255,16 @@ expansion_drafts <- function() {
 
 #' Access all the expansion draft picks
 #'
-#' `expansion_draft_picks()` retrieves all the expansion draft picks as a `data.frame` where each row represents pick and includes detail on date/season filtering windows and chronological context plus team identity, affiliation, and matchup-side context.
+#' `expansion_draft_picks()` returns historical expansion-draft picks with one
+#' row per selected player/team/season combination.
 #'
 #' @returns data.frame with one row per pick
 #' @examples
 #' all_expansion_draft_picks <- expansion_draft_picks()
 #' @export
-
 expansion_draft_picks <- function() {
   tryCatch({
-    drafts    <- nhl_api(
+    drafts    <- .nhl_api(
       path = 'expansion-draft-picks',
       type = 'r'
     )$data

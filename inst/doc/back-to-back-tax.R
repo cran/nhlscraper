@@ -3,9 +3,9 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = '#>',
   fig.align = 'center',
-  out.width = '90%',
+  out.width = '92%',
   fig.width = 7,
-  fig.height = 4.5
+  fig.height = 4.6
 )
 
 make_table <- function(x, caption, digits = 3) {
@@ -13,14 +13,16 @@ make_table <- function(x, caption, digits = 3) {
 }
 
 ## ----data---------------------------------------------------------------------
-# Pull regular-season game and team records.
+# Pull game and team catalogs.
 games_tbl <- nhlscraper::games()
 teams_tbl <- nhlscraper::teams()
 
-# Keep salary-cap regular-season games.
+# Keep completed salary-cap regular-season games.
 games_tbl <- games_tbl[
   games_tbl[['seasonId']] >= 20052006 &
-    games_tbl[['gameTypeId']] == 2,
+    games_tbl[['gameTypeId']] == 2 &
+    !is.na(games_tbl[['homeScore']]) &
+    !is.na(games_tbl[['visitingScore']]),
   c(
     'gameId',
     'seasonId',
@@ -34,41 +36,46 @@ games_tbl <- games_tbl[
 
 # Expand games into team-game rows.
 home_games <- data.frame(
-  gameId = games_tbl[['gameId']],
-  seasonId = games_tbl[['seasonId']],
-  gameDate = as.Date(games_tbl[['gameDate']]),
-  teamId = games_tbl[['homeTeamId']],
-  isHome = TRUE,
-  goalsFor = games_tbl[['homeScore']],
+  gameId       = games_tbl[['gameId']],
+  seasonId     = games_tbl[['seasonId']],
+  gameDate     = as.Date(games_tbl[['gameDate']]),
+  teamId       = games_tbl[['homeTeamId']],
+  isHome       = TRUE,
+  goalsFor     = games_tbl[['homeScore']],
   goalsAgainst = games_tbl[['visitingScore']]
 )
 away_games <- data.frame(
-  gameId = games_tbl[['gameId']],
-  seasonId = games_tbl[['seasonId']],
-  gameDate = as.Date(games_tbl[['gameDate']]),
-  teamId = games_tbl[['visitingTeamId']],
-  isHome = FALSE,
-  goalsFor = games_tbl[['visitingScore']],
+  gameId       = games_tbl[['gameId']],
+  seasonId     = games_tbl[['seasonId']],
+  gameDate     = as.Date(games_tbl[['gameDate']]),
+  teamId       = games_tbl[['visitingTeamId']],
+  isHome       = FALSE,
+  goalsFor     = games_tbl[['visitingScore']],
   goalsAgainst = games_tbl[['homeScore']]
 )
 team_games <- rbind(home_games, away_games)
 
-# Sort within team and compute off-days since previous game.
+# Sort within team.
 team_games <- team_games[order(
   team_games[['teamId']],
   team_games[['gameDate']],
   team_games[['gameId']]
 ), ]
-team_games[['previousGameDate']] <- ave(
-  team_games[['gameDate']],
-  team_games[['teamId']],
-  FUN = function(x) c(as.Date(NA), utils::head(x, -1))
-)
+
+# Compute previous game date within team.
+team_games[['previousGameDate']] <- as.Date(NA)
+for (team_id in unique(team_games[['teamId']])) {
+  idx <- which(team_games[['teamId']] == team_id)
+  team_games[['previousGameDate']][idx] <- c(
+    as.Date(NA),
+    utils::head(team_games[['gameDate']][idx], -1)
+  )
+}
+
+# Create rest and result fields.
 team_games[['restDays']] <-
   as.integer(team_games[['gameDate']] - team_games[['previousGameDate']]) - 1L
 team_games <- team_games[!is.na(team_games[['restDays']]), ]
-
-# Bucket rest and compute result metrics.
 team_games[['restBucket']] <- ifelse(
   team_games[['restDays']] >= 3,
   '3+',
@@ -81,8 +88,9 @@ team_games[['restBucket']] <- factor(
 team_games[['win']] <- team_games[['goalsFor']] > team_games[['goalsAgainst']]
 team_games[['goalDiff']] <-
   team_games[['goalsFor']] - team_games[['goalsAgainst']]
+nrow(team_games)
 
-## ----rest-table---------------------------------------------------------------
+## ----rest-summary-------------------------------------------------------------
 # Summarize results by rest bucket.
 rest_summary <- aggregate(
   cbind(win, goalDiff) ~ restBucket,
@@ -96,13 +104,16 @@ rest_summary <- rest_summary[
   match(levels(team_games[['restBucket']]), rest_summary[['restBucket']]),
   c('restBucket', 'games', 'win', 'goalDiff')
 ]
-
 make_table(
   rest_summary,
-  caption = 'Win rate and average goal differential by rest bucket.'
+  caption = 'Win rate and average goal differential by rest bucket.',
+  digits = 3
 )
 
-## ----rest-plot, fig.cap = 'Win rate across rest buckets in the salary-cap era.'----
+## ----rest-plot, fig.cap = 'Team performance by days of rest.'-----------------
+# Plot win rate and goal differential by rest bucket.
+old_par <- graphics::par(no.readonly = TRUE)
+graphics::par(mfrow = c(1, 2), mar = c(5, 4, 3, 1))
 graphics::barplot(
   rest_summary[['win']],
   names.arg = rest_summary[['restBucket']],
@@ -112,54 +123,73 @@ graphics::barplot(
   xlab = 'Days of Rest',
   ylab = 'Win Rate'
 )
-graphics::abline(
-  h = mean(team_games[['win']]),
-  lty = 2,
-  col = '#4d4d4d'
+graphics::abline(h = mean(team_games[['win']]), lty = 2, col = '#495057')
+graphics::barplot(
+  rest_summary[['goalDiff']],
+  names.arg = rest_summary[['restBucket']],
+  col = c('#d62828', '#f77f00', '#fcbf49', '#90be6d'),
+  border = NA,
+  xlab = 'Days of Rest',
+  ylab = 'Average Goal Differential'
 )
+graphics::abline(h = 0, lty = 2, col = '#495057')
+graphics::par(old_par)
 
-## ----home-road-table----------------------------------------------------------
+## ----venue-summary------------------------------------------------------------
 # Summarize rest effect by venue.
-home_road_summary <- aggregate(
-  win ~ restBucket + isHome,
+venue_summary <- aggregate(
+  cbind(win, goalDiff) ~ restBucket + isHome,
   data = team_games,
   FUN = mean
 )
-home_wins <- home_road_summary[
-  home_road_summary[['isHome']],
-  c('restBucket', 'win')
-]
-away_wins <- home_road_summary[
-  !home_road_summary[['isHome']],
-  c('restBucket', 'win')
-]
-names(home_wins)[names(home_wins) == 'win'] <- 'homeWinRate'
-names(away_wins)[names(away_wins) == 'win'] <- 'awayWinRate'
-home_road_table <- merge(home_wins, away_wins, by = 'restBucket')
-home_road_table <- home_road_table[
-  match(levels(team_games[['restBucket']]), home_road_table[['restBucket']]),
-]
+venue_counts <- aggregate(
+  gameId ~ restBucket + isHome,
+  data = team_games,
+  FUN = length
+)
+names(venue_counts)[names(venue_counts) == 'gameId'] <- 'games'
+venue_summary <- merge(
+  venue_summary,
+  venue_counts,
+  by = c('restBucket', 'isHome')
+)
+venue_summary[['venue']] <- ifelse(
+  venue_summary[['isHome']],
+  'Home',
+  'Away'
+)
+venue_summary <- venue_summary[, c(
+  'restBucket',
+  'venue',
+  'games',
+  'win',
+  'goalDiff'
+)]
 make_table(
-  home_road_table,
-  caption = 'Home and road win rate by rest bucket.'
+  venue_summary,
+  caption = 'Rest effect split by home and road games.',
+  digits = 3
 )
 
-## ----home-road-plot, fig.cap = 'Home and road win rate across rest buckets.'----
+## ----venue-plot, fig.cap = 'Home and road win rate by rest bucket.'-----------
+# Plot venue-specific rest curves.
+home_rows <- venue_summary[venue_summary[['venue']] == 'Home', ]
+away_rows <- venue_summary[venue_summary[['venue']] == 'Away', ]
 graphics::plot(
-  seq_len(nrow(home_road_table)),
-  home_road_table[['homeWinRate']],
+  seq_len(nrow(home_rows)),
+  home_rows[['win']],
   type = 'b',
   pch = 19,
   lwd = 2,
   col = '#1d3557',
   xaxt = 'n',
-  ylim = c(0.35, 0.60),
+  ylim = c(0.34, 0.62),
   xlab = 'Days of Rest',
   ylab = 'Win Rate'
 )
 graphics::lines(
-  seq_len(nrow(home_road_table)),
-  home_road_table[['awayWinRate']],
+  seq_len(nrow(away_rows)),
+  away_rows[['win']],
   type = 'b',
   pch = 19,
   lwd = 2,
@@ -167,8 +197,8 @@ graphics::lines(
 )
 graphics::axis(
   side = 1,
-  at = seq_len(nrow(home_road_table)),
-  labels = home_road_table[['restBucket']]
+  at = seq_len(nrow(home_rows)),
+  labels = home_rows[['restBucket']]
 )
 graphics::legend(
   'bottomright',
@@ -179,63 +209,106 @@ graphics::legend(
   bty = 'n'
 )
 
-## ----model--------------------------------------------------------------------
-# Fit simple win model with rest and venue.
-rest_fit <- stats::glm(
-  as.integer(win) ~ restBucket + isHome,
+## ----season-rest--------------------------------------------------------------
+# Summarize zero-rest share by season.
+season_rest <- aggregate(
+  I(restDays == 0) ~ seasonId,
   data = team_games,
-  family = stats::binomial()
+  FUN = mean
 )
-rest_fit_tbl <- as.data.frame(summary(rest_fit)$coefficients)
-rest_fit_tbl[['term']] <- rownames(rest_fit_tbl)
-rownames(rest_fit_tbl) <- NULL
-rest_fit_tbl[['term']] <- c(
-  'Intercept',
-  'One day versus zero',
-  'Two days versus zero',
-  'Three-plus days versus zero',
-  'Home indicator'
+names(season_rest)[names(season_rest) == 'I(restDays == 0)'] <- 'zeroRestShare'
+season_rest <- season_rest[order(season_rest[['seasonId']]), ]
+season_text <- as.character(season_rest[['seasonId']])
+season_rest[['season']] <- paste0(
+  substr(season_text, 1, 4),
+  '-',
+  substr(season_text, 7, 8)
 )
-rest_fit_tbl <- rest_fit_tbl[, c(
-  'term',
-  'Estimate',
-  'Std. Error',
-  'z value',
-  'Pr(>|z|)'
-)]
 make_table(
-  rest_fit_tbl,
-  caption = 'Logistic model of wins on rest and venue.',
-  digits = 4
+  utils::tail(season_rest[, c('season', 'zeroRestShare')], 8),
+  caption = 'Recent share of team-games played on zero rest.',
+  digits = 3
 )
 
+## ----season-plot, fig.cap = 'Share of team-games played on zero rest by season.'----
+# Plot season trend in zero-rest games.
+season_x <- seq_len(nrow(season_rest))
+label_idx <- seq(1L, nrow(season_rest), by = 2L)
+old_par <- graphics::par(no.readonly = TRUE)
+graphics::par(mar = c(7, 4, 3, 1))
+graphics::plot(
+  season_x,
+  season_rest[['zeroRestShare']],
+  type = 'h',
+  lwd = 3,
+  col = '#457b9d',
+  xaxt = 'n',
+  xlab = '',
+  ylab = 'Zero-Rest Share'
+)
+graphics::points(
+  season_x,
+  season_rest[['zeroRestShare']],
+  pch = 19,
+  col = '#1d3557'
+)
+graphics::axis(
+  side = 1,
+  at = season_x[label_idx],
+  labels = season_rest[['season']][label_idx],
+  las = 2,
+  cex.axis = 0.75
+)
+graphics::mtext('Season', side = 1, line = 5)
+graphics::par(old_par)
+
 ## ----team-table---------------------------------------------------------------
-# Rank teams by back-to-back win rate.
-zero_rest_tbl <- team_games[team_games[['restDays']] == 0, c('teamId', 'win')]
-zero_rest_tbl <- aggregate(
+# Rank teams by zero-rest win rate.
+zero_rest_tbl <- team_games[
+  team_games[['restDays']] == 0,
+  c('teamId', 'win', 'goalDiff')
+]
+zero_summary <- aggregate(
+  cbind(win, goalDiff) ~ teamId,
+  data = zero_rest_tbl,
+  FUN = mean
+)
+zero_counts <- aggregate(
   win ~ teamId,
   data = zero_rest_tbl,
-  FUN = function(x) c(winRate = mean(x), games = length(x))
+  FUN = length
 )
-zero_rest_tbl <- data.frame(
-  teamId = zero_rest_tbl[['teamId']],
-  winRate = zero_rest_tbl[['win']][, 'winRate'],
-  games = zero_rest_tbl[['win']][, 'games']
-)
-zero_rest_tbl <- zero_rest_tbl[zero_rest_tbl[['games']] >= 50, ]
-zero_rest_tbl <- merge(
-  zero_rest_tbl,
+names(zero_counts)[names(zero_counts) == 'win'] <- 'games'
+zero_summary <- merge(zero_summary, zero_counts, by = 'teamId')
+zero_summary <- zero_summary[zero_summary[['games']] >= 50, ]
+zero_summary <- merge(
+  zero_summary,
   teams_tbl[, c('teamId', 'teamTriCode')],
   by = 'teamId',
   all.x = TRUE
 )
-zero_rest_tbl <- zero_rest_tbl[
-  order(-zero_rest_tbl[['winRate']]),
-  c('teamTriCode', 'games', 'winRate')
-]
-zero_rest_tbl <- utils::head(zero_rest_tbl, 10)
+best_zero <- zero_summary[order(-zero_summary[['win']]), ]
+best_zero <- utils::head(best_zero[, c(
+  'teamTriCode',
+  'games',
+  'win',
+  'goalDiff'
+)], 8)
+worst_zero <- zero_summary[order(zero_summary[['win']]), ]
+worst_zero <- utils::head(worst_zero[, c(
+  'teamTriCode',
+  'games',
+  'win',
+  'goalDiff'
+)], 8)
 make_table(
-  zero_rest_tbl,
-  caption = 'Best back-to-back win rates among teams with at least 50 zero-rest games.'
+  best_zero,
+  caption = 'Best zero-rest win rates among teams with at least 50 games.',
+  digits = 3
+)
+make_table(
+  worst_zero,
+  caption = 'Lowest zero-rest win rates among teams with at least 50 games.',
+  digits = 3
 )
 

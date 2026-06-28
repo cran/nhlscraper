@@ -1,15 +1,17 @@
+# Manager Functions ---------------------------------------------------------
+
 #' Access all the general managers
 #'
-#' `general_managers()` retrieves all the general managers as a `data.frame` where each row represents general manager and includes detail on player identity, role, handedness, and biographical profile.
+#' `general_managers()` returns the records-site general-manager registry with
+#' one row per general manager and normalized ID/name fields.
 #'
 #' @returns data.frame with one row per general manager
 #' @examples
 #' all_GMs <- general_managers()
 #' @export
-
 general_managers <- function() {
   tryCatch({
-    gms <- nhl_api(
+    gms <- .nhl_api(
       path = 'general-manager',
       type = 'r'
     )$data
@@ -26,7 +28,6 @@ general_managers <- function() {
 
 #' @rdname general_managers
 #' @export
-
 gms <- function() {
   general_managers()
 }

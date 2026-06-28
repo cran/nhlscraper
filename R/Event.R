@@ -1,6 +1,10 @@
+# Event Functions ---------------------------------------------------------
+
 #' Access the replay for an event
 #'
-#' `replay()` retrieves the replay for an event as a `data.frame` where each row represents decisecond and includes detail on team identity, affiliation, and matchup-side context plus player identity, role, handedness, and biographical profile.
+#' `replay()` downloads NHL puck/player tracking sprite data for one goal event
+#' and returns one row per decisecond with puck coordinates plus dynamic
+#' `playerN*` columns for tracked skaters.
 #'
 #' @param game integer ID (e.g., 2025020262); see [games()] for reference
 #' @param event integer ID (e.g., 751); see [gc_play_by_play()] and/or 
@@ -13,7 +17,6 @@
 #'   event = 751
 #' )
 #' @export
-
 replay <- function(game = 2023030417, event = 866) {
   tryCatch(
     expr = {
@@ -141,16 +144,17 @@ replay <- function(game = 2023030417, event = 866) {
 
 #' Access all the penalty shots
 #'
-#' `penalty_shots()` retrieves all the penalty shots as a `data.frame` where each row represents penalty shot and includes detail on game timeline state, period/clock progression, and matchup flow plus date/season filtering windows and chronological context.
+#' `penalty_shots()` returns historical penalty-shot records with one row per
+#' attempt, including game, season/game type, shooter/goalie, team, and outcome
+#' fields.
 #'
 #' @returns data.frame with one row per penalty shot
 #' @examples
 #' all_pss <- penalty_shots()
 #' @export
-
 penalty_shots <- function() {
   tryCatch({
-    pss    <- nhl_api(
+    pss    <- .nhl_api(
       path = 'penalty-shots',
       type = 'r'
     )$data
@@ -158,7 +162,7 @@ penalty_shots <- function() {
     pss    <- pss[order(pss$gameId), ]
     names(pss)[names(pss) == 'season']   <- 'seasonId'
     names(pss)[names(pss) == 'gameType'] <- 'gameTypeId'
-    names(pss) <- normalize_team_abbrev_cols(names(pss))
+    names(pss) <- .normalize_team_abbrev_cols(names(pss))
     pss
   }, error = function(e) {
     message('Unable to create connection; please try again later.')
@@ -168,7 +172,6 @@ penalty_shots <- function() {
 
 #' @rdname penalty_shots
 #' @export
-
 pss <- function() {
   penalty_shots()
 }

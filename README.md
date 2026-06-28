@@ -1,11 +1,11 @@
 # nhlscraper <a href="https://rentosaijo.github.io/nhlscraper/"><img src="man/figures/logo.png" align="right" height="138" alt="nhlscraper website" /></a>
 [![CRAN Status](https://www.r-pkg.org/badges/version/nhlscraper)](https://CRAN.R-project.org/package=nhlscraper)
-[![Dev Version](https://img.shields.io/badge/dev%20ver-0.6.0.9000-red.svg)](https://github.com/RentoSaijo/nhlscraper)
+[![Dev Version](https://img.shields.io/badge/dev%20ver-0.6.1.9000-red.svg)](https://github.com/RentoSaijo/nhlscraper)
 ![Downloads](https://cranlogs.r-pkg.org/badges/grand-total/nhlscraper)
 
 ### Overview
 
-nhlscraper is a minimum-dependency R package to scrape, clean, and visualize NHL data via the NHL and ESPN APIs. It primarily wraps 125+ [endpoints](https://github.com/RentoSaijo/nhlscraper/wiki) from high-level multi-season summaries and award winners to low-level decisecond replays and bookmakers' odds, making them significantly more accessible. It also features cleaning and visualization functions, primarily for play-by-plays, to help analyze the data.
+nhlscraper is an R package to scrape, clean, and visualize NHL data via the NHL and ESPN APIs. It primarily wraps 125+ [endpoints](https://github.com/RentoSaijo/nhlscraper/wiki) from high-level multi-season summaries and award winners to low-level decisecond replays and bookmakers' odds, making them significantly more accessible. It also features cleaning and visualization functions, primarily for play-by-plays, to help analyze the data.
 
 ### Prerequisite
 
@@ -20,8 +20,8 @@ install.packages('nhlscraper')
 
 Install the development version from [GitHub](https://github.com/) with:
 ```r
-install.packages('devtools')
-devtools::install_github('RentoSaijo/nhlscraper')
+install.packages('pak')
+pak::pak('RentoSaijo/nhlscraper')
 ```
 
 ### Disclosure

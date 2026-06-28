@@ -1,3 +1,5 @@
+# Deprecated Functions ---------------------------------------------------------
+
 #' Access the goalie statistics leaders for a season, game type, and category
 #' 
 #' `get_goalie_leaders()` is deprecated. Use [goalie_leaders()] instead.
@@ -7,7 +9,6 @@
 #' 'goalsAgainstAverage'
 #' @returns data.frame with one row per player
 #' @export
-
 get_goalie_leaders <- function(
   season    = 'current',
   game_type = '',
@@ -38,7 +39,6 @@ get_goalie_leaders <- function(
 #'
 #' @returns data.frame with one row per player
 #' @export
-
 get_goalie_milestones <- function() {
   .Deprecated(
     new     = 'goalie_milestones()',
@@ -56,7 +56,6 @@ get_goalie_milestones <- function() {
 #' `get_goalies()` is defunct. Use [players()] instead.
 #'
 #' @export
-
 get_goalies <- function() {
   .Defunct(
     new     = 'players()',
@@ -74,7 +73,6 @@ get_goalies <- function() {
 #' [goalie_game_report()] instead.
 #' 
 #' @export
-
 get_goalie_statistics <- function() {
   .Defunct(
     new     = 'goalie_season_report()',

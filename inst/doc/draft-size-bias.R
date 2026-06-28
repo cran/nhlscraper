@@ -3,9 +3,9 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = '#>',
   fig.align = 'center',
-  out.width = '90%',
+  out.width = '92%',
   fig.width = 7,
-  fig.height = 4.5
+  fig.height = 4.6
 )
 
 make_table <- function(x, caption, digits = 3) {
@@ -13,16 +13,21 @@ make_table <- function(x, caption, digits = 3) {
 }
 
 ## ----data---------------------------------------------------------------------
-# Pull draft picks and keep skaters with measured size.
+# Pull draft picks.
 draft_tbl <- nhlscraper::draft_picks()
+
+# Keep modern skater sample.
 draft_tbl <- draft_tbl[
   draft_tbl[['draftYear']] >= 1979 &
+    draft_tbl[['roundNumber']] <= 7 &
     draft_tbl[['positionCode']] != 'G' &
     !is.na(draft_tbl[['height']]) &
     !is.na(draft_tbl[['weight']]),
+  ,
+  drop = FALSE
 ]
 
-# Create era, round, and position buckets.
+# Create analysis buckets.
 draft_tbl[['roundBucket']] <- ifelse(
   draft_tbl[['roundNumber']] == 1,
   'Round 1',
@@ -36,7 +41,7 @@ draft_tbl[['era']] <- cut(
     '1990-1999',
     '2000-2009',
     '2010-2019',
-    '2020-2025'
+    '2020-present'
   )
 )
 draft_tbl[['positionBucket']] <- ifelse(
@@ -45,143 +50,167 @@ draft_tbl[['positionBucket']] <- ifelse(
   'Forward'
 )
 draft_tbl[['tallSkater']] <- draft_tbl[['height']] >= 74
+draft_tbl[['bigSkater']] <- draft_tbl[['height']] >= 74 &
+  draft_tbl[['weight']] >= 205
 nrow(draft_tbl)
 
 ## ----era-table----------------------------------------------------------------
 # Summarize size by era and round bucket.
 era_summary <- aggregate(
-  cbind(height, weight) ~ era + roundBucket,
+  cbind(height, weight, tallSkater, bigSkater) ~ era + roundBucket,
   data = draft_tbl,
   FUN = mean
 )
-make_table(
-  era_summary,
-  caption = 'Average drafted skater size by era and draft bucket.'
-)
-
-## ----rolling-data-------------------------------------------------------------
-# Compute annual mean height by round bucket.
-round1_annual <- aggregate(
-  height ~ draftYear,
-  data = draft_tbl[draft_tbl[['roundBucket']] == 'Round 1', ],
-  FUN = mean
-)
-later_annual <- aggregate(
-  height ~ draftYear,
-  data = draft_tbl[draft_tbl[['roundBucket']] == 'Rounds 2-7', ],
-  FUN = mean
-)
-
-# Smooth annual means with five-draft rolling averages.
-round1_annual[['rollHeight']] <- as.numeric(stats::filter(
-  round1_annual[['height']],
-  rep(1 / 5, 5),
-  sides = 2
-))
-later_annual[['rollHeight']] <- as.numeric(stats::filter(
-  later_annual[['height']],
-  rep(1 / 5, 5),
-  sides = 2
-))
-
-## ----rolling-plot, fig.cap = 'Five-draft rolling average height for first-round skaters and later-round skaters.'----
-graphics::plot(
-  round1_annual[['draftYear']],
-  round1_annual[['rollHeight']],
-  type = 'l',
-  lwd = 2,
-  col = '#0f4c5c',
-  ylim = range(
-    c(round1_annual[['rollHeight']], later_annual[['rollHeight']]),
-    na.rm = TRUE
-  ),
-  xlab = 'Draft Year',
-  ylab = 'Average Height (Inches)'
-)
-graphics::lines(
-  later_annual[['draftYear']],
-  later_annual[['rollHeight']],
-  lwd = 2,
-  col = '#e36414'
-)
-graphics::legend(
-  'topright',
-  legend = c('Round 1', 'Rounds 2-7'),
-  col = c('#0f4c5c', '#e36414'),
-  lwd = 2,
-  bty = 'n'
-)
-
-## ----tall-share---------------------------------------------------------------
-# Summarize share of taller skaters by era.
-tall_share <- aggregate(
-  tallSkater ~ era + roundBucket,
-  data = draft_tbl,
-  FUN = mean
-)
-tall_counts <- aggregate(
+era_counts <- aggregate(
   height ~ era + roundBucket,
   data = draft_tbl,
   FUN = length
 )
-names(tall_counts)[names(tall_counts) == 'height'] <- 'n'
-tall_share <- merge(tall_share, tall_counts, by = c('era', 'roundBucket'))
-
+names(era_counts)[names(era_counts) == 'height'] <- 'n'
+era_summary <- merge(
+  era_summary,
+  era_counts,
+  by = c('era', 'roundBucket')
+)
+era_summary <- era_summary[, c(
+  'era',
+  'roundBucket',
+  'n',
+  'height',
+  'weight',
+  'tallSkater',
+  'bigSkater'
+)]
 make_table(
-  tall_share,
-  caption = 'Share of drafted skaters measuring at least 6-foot-2.'
+  era_summary,
+  caption = 'Drafted skater size by era and draft bucket.',
+  digits = 3
 )
 
-## ----tall-share-plot, fig.cap = 'Share of drafted skaters at least 6-foot-2 by era and round bucket.'----
-# Plot tall-skater shares by era.
-tall_matrix <- rbind(
-  tall_share[['tallSkater']][tall_share[['roundBucket']] == 'Round 1'],
-  tall_share[['tallSkater']][tall_share[['roundBucket']] == 'Rounds 2-7']
+## ----rolling-data-------------------------------------------------------------
+# Compute annual first-round and later-round height.
+annual_height <- aggregate(
+  height ~ draftYear + roundBucket,
+  data = draft_tbl,
+  FUN = mean
 )
-graphics::barplot(
-  tall_matrix,
-  beside = TRUE,
-  col = c('#1b4332', '#95d5b2'),
-  ylim = c(0, 0.7),
-  names.arg = levels(draft_tbl[['era']]),
-  ylab = 'Share At Least 6-Foot-2',
-  xlab = 'Draft Era'
+annual_height <- annual_height[order(
+  annual_height[['roundBucket']],
+  annual_height[['draftYear']]
+), ]
+annual_height[['rollHeight']] <- ave(
+  annual_height[['height']],
+  annual_height[['roundBucket']],
+  FUN = function(x) as.numeric(stats::filter(x, rep(1 / 5, 5), sides = 2))
 )
+round_one <- annual_height[annual_height[['roundBucket']] == 'Round 1', ]
+later_rounds <- annual_height[annual_height[['roundBucket']] == 'Rounds 2-7', ]
+
+## ----rolling-plot, fig.cap = 'Five-draft rolling average height by draft bucket.'----
+graphics::plot(
+  round_one[['draftYear']],
+  round_one[['rollHeight']],
+  type = 'l',
+  lwd = 2.5,
+  col = '#003049',
+  ylim = range(annual_height[['rollHeight']], na.rm = TRUE),
+  xlab = 'Draft Year',
+  ylab = 'Average Height (Inches)'
+)
+graphics::lines(
+  later_rounds[['draftYear']],
+  later_rounds[['rollHeight']],
+  lwd = 2.5,
+  col = '#f77f00'
+)
+graphics::abline(v = c(1990, 2000, 2010, 2020), lty = 3, col = '#adb5bd')
 graphics::legend(
   'topright',
   legend = c('Round 1', 'Rounds 2-7'),
-  fill = c('#1b4332', '#95d5b2'),
+  col = c('#003049', '#f77f00'),
+  lwd = 2.5,
+  bty = 'n'
+)
+
+## ----big-share-table----------------------------------------------------------
+# Summarize big-skater share by era and round bucket.
+big_share <- aggregate(
+  bigSkater ~ era + roundBucket,
+  data = draft_tbl,
+  FUN = mean
+)
+big_share <- merge(
+  big_share,
+  era_counts,
+  by = c('era', 'roundBucket')
+)
+big_share <- big_share[
+  order(big_share[['era']], big_share[['roundBucket']]),
+]
+make_table(
+  big_share,
+  caption = 'Share of drafted skaters at least 6-foot-2 and 205 pounds.',
+  digits = 3
+)
+
+## ----big-share-plot, fig.cap = 'Share of big skaters by era and round bucket.'----
+# Plot big-skater share by era.
+round_levels <- c('Round 1', 'Rounds 2-7')
+big_matrix <- rbind(
+  big_share[['bigSkater']][big_share[['roundBucket']] == round_levels[1]],
+  big_share[['bigSkater']][big_share[['roundBucket']] == round_levels[2]]
+)
+graphics::barplot(
+  big_matrix,
+  beside = TRUE,
+  col = c('#2d6a4f', '#95d5b2'),
+  border = NA,
+  ylim = c(0, max(big_matrix, na.rm = TRUE) * 1.25),
+  names.arg = levels(draft_tbl[['era']]),
+  las = 2,
+  ylab = 'Share of Big Skaters'
+)
+graphics::legend(
+  'topright',
+  legend = round_levels,
+  fill = c('#2d6a4f', '#95d5b2'),
   bty = 'n'
 )
 
 ## ----position-table-----------------------------------------------------------
 # Summarize size by era and position family.
 position_summary <- aggregate(
-  cbind(height, weight) ~ era + positionBucket,
+  cbind(height, weight, bigSkater) ~ era + positionBucket,
   data = draft_tbl,
   FUN = mean
 )
+position_counts <- aggregate(
+  height ~ era + positionBucket,
+  data = draft_tbl,
+  FUN = length
+)
+names(position_counts)[names(position_counts) == 'height'] <- 'n'
+position_summary <- merge(
+  position_summary,
+  position_counts,
+  by = c('era', 'positionBucket')
+)
 make_table(
   position_summary,
-  caption = 'Average drafted skater size by era and position family.'
+  caption = 'Drafted skater size by era and position family.',
+  digits = 3
 )
 
 ## ----model--------------------------------------------------------------------
-# Fit simple draft-height model.
-draft_fit <- stats::lm(
-  height ~ draftYear + I(roundNumber == 1) + I(positionCode == 'D'),
+# Fit height model.
+height_fit <- stats::lm(
+  height ~ era + I(roundNumber == 1) + positionBucket,
   data = draft_tbl
 )
-draft_fit_tbl <- as.data.frame(summary(draft_fit)$coefficients)
-draft_fit_tbl[['term']] <- rownames(draft_fit_tbl)
-rownames(draft_fit_tbl) <- NULL
-draft_fit_tbl[['term']] <- c(
-  'Intercept',
-  'Draft year',
-  'First-round indicator',
-  'Defense indicator'
-)
-draft_fit_tbl <- draft_fit_tbl[, c(
+height_fit_tbl <- as.data.frame(summary(height_fit)$coefficients)
+height_fit_tbl[['term']] <- rownames(height_fit_tbl)
+rownames(height_fit_tbl) <- NULL
+height_fit_tbl <- height_fit_tbl[, c(
   'term',
   'Estimate',
   'Std. Error',
@@ -189,7 +218,7 @@ draft_fit_tbl <- draft_fit_tbl[, c(
   'Pr(>|t|)'
 )]
 make_table(
-  draft_fit_tbl,
+  height_fit_tbl,
   caption = 'Linear model of drafted skater height.',
   digits = 4
 )
